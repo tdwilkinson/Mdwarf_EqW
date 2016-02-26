@@ -1,9 +1,8 @@
 __author__ = 'Tessa Wilkinson'
-
-# copy of get_ew3.py
-# run in python console to get
-# outfile: finalEW.txt
-
+"""
+ run in python console
+ outfile: finalEW.txt
+"""
 import os
 import numpy as np
 import pyfits
@@ -13,9 +12,20 @@ from scipy.interpolate import UnivariateSpline as spline
 import pandas as pd
 from numpy import trapz  # trapezoidal sum of the area
 
+# global variables = which lines to measure and their ranges.
+halpha = 6562.801
+tio5 = 0
+
+def setrange(line):
+    lower, upper = [line - 5, line + 5]
+    return lower, upper
 
 def get_wavelength_calibrated_fits_files(input_directory):
-
+    """
+    Give the directory containing multiple folders of observing dates and data. This definition will go through
+    and look for the wavelength calibrated fits images and save their path locations to a list.
+    output = list of paths to fits files
+    """
     # fits_files = []
     # for file in os.listdir(input_directory):
     #     if file.startswith('dkic') and file.endswith('.fits'):
@@ -36,27 +46,33 @@ def get_wavelength_calibrated_fits_files(input_directory):
 
 
 def find_halpha(r, data, plot):
+    """
+    :param r:
+    :param data: the flux values for the data
+    :param plot: if you want to plot these values
+    :return:variables at the moment
+    """
     # define halpha
-    halpha = 6562.801
-    a = [halpha - 5, halpha + 5]
+
     ind1 = {}
     ind2 = {}
     ha_region = {}
+    lower, upper = setrange(halpha)
     for i, j in zip(r, data):
-        if i >= a[0]-10 and i <= a[0]:
+        if i >= lower-10 and i <= lower:
             ind1[i] = j
             if plot:
                 plt.axvline(x=i, linestyle='--', color='pink')
 
-        elif i >= a[1] and i <= a[1]+10:
+        elif i >= upper and i <= upper+10:
             ind2[i] = j
             if plot:
                 plt.axvline(x=i, linestyle='--', color='pink')
 
-        elif i >= a[0] and i <= a[1]:
+        elif i >= lower and i <= upper:
             ha_region[i] = j
 
-    return ha_region, ind1, ind2, halpha, a
+    return ha_region, ind1, ind2
 
 def find_continuum(ind1, ind2, flux):
     # remove cosmic rays from the continuum regions by setting
@@ -114,13 +130,13 @@ def save_ew(fitsimage, ew):
         newfile.write(str(k) + '\t' + str(v[0][0]) + '\t' + str(v[0][1]) + '\n')
     newfile.close()
 
-def plot_ew(halpha, a, contupper, contlower, continuum, area, r, data):
+def plot_ew(halpha, contupper, contlower, continuum, area, r, data):
 
     figure = plt.figure()
     # plot halpha
     plt.axvline(x=halpha, color='g')
     # plot boundries of halpha measurements
-    for i in a:
+    for i in setrange(halpha):
         plt.axvline(x=i, color='g', linestyle='--')
     # plot continuum
     plt.axhline(contupper, color='orange')  # go to get_ew2.py
@@ -131,11 +147,12 @@ def plot_ew(halpha, a, contupper, contlower, continuum, area, r, data):
     plt.plot(r, data, color='black', linestyle='-', marker=',')
     plt.xlim(6530, 6600)
 
-    figure.show()
+
+    #figure.show()
 
 # TODO: currently pops up all ~80, may want to fix that before turning plot on! :)
 
-def ew_per_image(fitsimage, checkmode = False, plot = False):
+def ew_per_image(fitsimage, checkmode = False, plot = True):
     """
      :return: output file with ew's
     """
@@ -150,17 +167,20 @@ def ew_per_image(fitsimage, checkmode = False, plot = False):
     r = flux * dw + minw
 
     # define region to investigate
-    ha_region, ind1, ind2, halpha, a = find_halpha(r, data, plot)
+    ha_region, ind1, ind2 = find_halpha(r, data, plot)
 
     # clean investigation region of cosmic rays and define continuum region
     continuum, contupper, contlower, c1, c2, ind2_nocr = find_continuum(ind1,ind2, flux)
 
+    # take the area under the curve
     ew, area = measure_ew(ha_region, continuum, c1, c2, ind2_nocr)
 
-    if plot:
-        plot_ew(halpha, a, contupper, contlower, continuum, area, r, data)
-
     save_ew(fitsimage, ew)
+
+
+
+    if plot:
+        plot_ew(halpha, contupper, contlower, continuum, area, r, data)
 
     # print ew_dict
     # if checkmode:
