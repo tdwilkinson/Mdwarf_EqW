@@ -12,6 +12,8 @@ from numpy.polynomial.polynomial import polyfit, polyval
 from scipy.interpolate import UnivariateSpline as spline
 import pandas as pd
 from numpy import trapz  # trapezoidal sum of the area
+from scipy.optimize import curve_fit
+from scipy import asarray as ar,exp
 
 # global variables = which lines to measure
 halpha = 6562.801
@@ -39,10 +41,10 @@ def get_wavelength_calibrated_fits_files(input_directory):
 
     return fits_path
 
-def find_halpha(r, data, plot):
+def find_halpha(r, data, continuum, plot):
     """
      define halpha
-    :param r:
+    halpha = 6563 as defined above. ha_min and ha_max find the min/max point of features nearest haplha
     :param data: the flux values for the data
     :param plot: if you want to plot these values
     :return:variables at the moment
@@ -50,12 +52,46 @@ def find_halpha(r, data, plot):
 
     ha_region = {}
     lower, upper = setrange(halpha)
+    region_data = []
+    region = []
 
+    # find the region near halpha
     for i, j in zip(r, data):
         if i >= lower and i <= upper:
             ha_region[i] = j
+            region.append(i)
+            region_data.append(j)
 
-    return ha_region
+    values = []
+    # for i,j in zip(region_data, region):
+    #     values.append(i*j)
+    n = len(region_data)
+    print n
+    z = [region, region_data]
+
+    mean = np.sum(region * region_data)/n
+    m = np.mean(region_data)
+    print mean, m
+    sigma = np.sqrt(np.sum((region * region_data-mean)**2))
+    print sigma
+    popt,pcov = curve_fit(gaus,region_data,region,p0=[1,mean,sigma])
+    print popt
+    # find features min and max pixel near halpha
+    for i, j in zip(r, data):
+        if j == min(region_data):
+            ha_min = [i,j]
+        elif j == max(region_data):
+            ha_max = [i, j]
+
+    # choose max or min feature based on depth
+    if np.abs(continuum - ha_min[1]) > np.abs(continuum - ha_max[1]):
+        return ha_region, ha_min, popt
+    else:
+        return ha_region, ha_max, popt
+
+
+def gaus(x,a,x0,sigma):
+    return a*exp(-(x-x0)**2/(2*sigma**2))
 
 def find_continuum(r, data, flux):
     """
@@ -139,13 +175,17 @@ def save_ew(fitsimage, ew):
         newfile.write(str(k) + '\t' + str(v[0]) + '\t' + str(v[1]) + '\n')
 
 
-def plot_ew(halpha, contupper, contlower, continuum, area, r, data,):
+def plot_ew(halpha, contupper, contlower, continuum, area, r, data, ha_value, popt):
 
     # plot halpha
-    plt.axvline(x=halpha, color='g')
+    plt.axvline(x=halpha, color='r')
+    # plot ha feature based on min/max value
+    plt.axvline(x=ha_value[0], color = 'b')
+
     # plot boundries of halpha measurements
     for i in setrange(halpha):
-        plt.axvline(x=i, color='g', linestyle='--')
+        plt.axvline(x=i, color='r', linestyle='--')
+
     # plot continuum
     plt.axhline(contupper, color='orange')  # go to get_ew2.py
     plt.axhline(contlower, color='orange')
@@ -159,6 +199,11 @@ def plot_ew(halpha, contupper, contlower, continuum, area, r, data,):
             plt.axvline(x=i, linestyle='--', color='pink')
 
     #plt.fill_between(halpha, continuum)
+
+    # for fitting a gaussian
+    a = setrange(halpha)
+    plt.plot(a ,gaus(a,*popt),'b*:',label='fit')
+
     #plt.plot(area, color = 'red' )
     plt.plot(r, data, color='black', linestyle='-', marker=',')
     plt.xlim(6530, 6600)
@@ -167,7 +212,7 @@ def plot_ew(halpha, contupper, contlower, continuum, area, r, data,):
 
 
 
-def ew_per_image(fitsimage, checkmode = False, plot = False):
+def ew_per_image(fitsimage, checkmode = False, plot = True):
     """
      :return: output file with ew's
     """
@@ -181,17 +226,19 @@ def ew_per_image(fitsimage, checkmode = False, plot = False):
     flux = np.arange(0, len(data))
     r = flux * dw + minw
 
-    # define region to investigate
-    ha_region= find_halpha(r, data, plot)
     # clean investigation region of cosmic rays and define continuum region
     continuum, contupper, contlower, c1, c2, ind2_nocr = find_continuum(r, data, flux)
+
+    # define region to investigate
+    ha_region, ha_value, popt= find_halpha(r, data, continuum, plot)
+
     # take the area under the curve
     ew, area = measure_ew(ha_region, continuum, c1, c2, ind2_nocr)
 
     save_ew(fitsimage, ew)
 
     if plot:
-        plot_ew(halpha, contupper, contlower, continuum, area, r, data)
+        plot_ew(halpha, contupper, contlower, continuum, area, r, data, ha_value, popt)
 
 
 def ew_per_directory(parent_directory):
@@ -209,6 +256,14 @@ def setrange(line):
     # for measuring continuum
     lower, upper = [line - 5, line + 5]
     return lower, upper
+
+def roll(array, roll_amount):
+
+    parameters = [array]
+    ar = np.roll(array,1)
+
+    return ar
+
 
 def final_plot():
     """
