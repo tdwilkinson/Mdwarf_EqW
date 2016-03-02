@@ -41,51 +41,48 @@ def get_wavelength_calibrated_fits_files(input_directory):
 
     return fits_path
 
-def find_halpha_feature(r, data, line, continuum, plot):
+def find_feature_region(r, data, line):
+
+    region = {}
+    lowerbound, upperbound = setrange(line, 5)
+
+    # store the region near feature
+    for i, j in zip(r, data):
+        if i >= lowerbound and i <= upperbound:
+            region[i] = j
+
+    return region, lowerbound, upperbound
+
+def find_peak_of_feature(r, data,line , continuum, plot):
     """
      define halpha
-    halpha = 6563 as defined above. ha_min and ha_max find the min/max point of features nearest haplha
+    halpha = 6563 as defined above. value is to find the min/max point of features nearest the line
     :param data: the flux values for the data
     :param plot: if you want to plot these values
     :return:variables at the moment
     """
+    region, lowerbound, upperbound = find_feature_region(r, data, line)
 
-    region = {}
-    lower, upper = setrange(line, 5)
-
-    # store the region near halpha
-    for i, j in zip(r, data):
-        if i >= lower and i <= upper:
-            region[i] = j
-
-    # find feature pixels near halpha
+    # find feature pixels near feature
     for i, j in zip(r, data):
         if j == min(region.values()):
-            ha_min = [i,j]
+            line_min = [i,j]
         elif j == max(region.values()):
-            ha_max = [i, j]
+            line_max = [i, j]
 
     # choose max or min feature based on depth
-    if np.abs(continuum - ha_min[1]) > np.abs(continuum - ha_max[1]):
-        ha_value = ha_min
+    if np.abs(continuum - line_min[1]) > np.abs(continuum - line_max[1]):
+        value = line_min
     else:
-        ha_value = ha_max
-    #
+        value = line_max
 
-    #TODO: this!
-
-    # look for turnover near continuum (gaussian preferred)
+    # look for turnover near continuum (# TODO: gaussian fit?)
     for n, flux in enumerate(region.values()):
-        if int(flux) == int(ha_value[1]):
+        if int(flux) == int(value[1]):
             index = n
 
+    return value
 
-    return region, ha_value
-
-    # TODO: put in gaussian fit function?
-    values = []
-    # for i,j in zip(region_data, region):
-    #     values.append(i*j)
     # n = len(region_data)
     # print n
     # z = [region, region_data]
@@ -105,7 +102,7 @@ def setrange(line, amount):
     lower, upper = [line - amount, line + amount]
     return lower, upper
 
-def find_continuum(r, data, flux):
+def find_continuum(r, data, line):
     """
     Define region just outside of halpha to be continuum
     Currently set to 10 angstroms wide
@@ -117,11 +114,14 @@ def find_continuum(r, data, flux):
     cont_range_preline = {}
     cont_range_postline = {}
 
-    lower, upper = setrange(halpha)
+    region, lowerbound, upperbound = find_feature_region(r, data, line)
+
+    # define continuum outside of feature region
     for i, j in zip(r, data):
-        if i >= lower-10 and i <= lower:
+
+        if i >= lowerbound - 10 and i <= lowerbound:
             cont_range_preline[i] = j
-        elif i >= upper and i <= upper+10:
+        elif i >= upperbound and i <= upperbound + 10:
             cont_range_postline[i] = j
 
     pre, post = remove_cosmic_ray(cont_range_preline, cont_range_postline,1.25, 0.75)
@@ -154,23 +154,27 @@ def remove_cosmic_ray(dict_lines_region1, dict_lines_region2, upperbound, lowerb
 
     return preline_nocr, postline_nocr
 
-def measure_ew(ha_region, continuum, c1, c2, ind2_nocr):
-    # measure area under feature
-    haflux = {}
-    for wavelengths, fluxx in ha_region.iteritems():  # take all data points in ha region and subtract continuum
-        feature = fluxx - continuum
-        haflux[wavelengths] = feature
+def measure_ew(r, data, line, continuum, c1, c2, ind2_nocr):
+        # measure area under feature
 
-    area = trapz(haflux.values(), haflux.keys())  # sum all the feature data points
+        haflux = {}
 
-    fluxerr = np.std(ind2_nocr.values())  # std in continuum noise
+        region, lowerbound, upperbound = find_feature_region(r, data, line)
 
-    x = np.ones(len(haflux.values()))
-    linerr = np.sqrt(trapz(haflux.values(), (fluxerr*x)**2))
-    ha_err = np.sqrt((linerr / (continuum)) ** 2 + (area / (continuum) ** 2 * np.std([c1,c2]))**2)
-    ew = [area / continuum, ha_err]
+        for wavelengths, fluxx in region.iteritems():  # take all data points in ha region and subtract continuum
+            feature = fluxx - continuum
+            haflux[wavelengths] = feature
 
-    return ew, area
+        area = trapz(haflux.values(), haflux.keys())  # sum all the feature data points
+
+        fluxerr = np.std(ind2_nocr.values())  # std in continuum noise
+
+        x = np.ones(len(haflux.values()))
+        linerr = np.sqrt(trapz(haflux.values(), (fluxerr*x)**2))
+        ha_err = np.sqrt((linerr / (continuum)) ** 2 + (area / (continuum) ** 2 * np.std([c1,c2]))**2)
+        ew = [area / continuum, ha_err]
+
+        return ew, area
 
 def save_ew(fitsimage, ew):
     """
@@ -197,22 +201,22 @@ def save_ew(fitsimage, ew):
         newfile.write(str(k) + '\t' + str(v[0]) + '\t' + str(v[1]) + '\n')
 
 
-def plot_ew(halpha, contupper, contlower, continuum, area, r, data, ha_value):
+def plot_ew(halpha, contupper, contlower, continuum, area, r, data, value):
 
     # plot halpha
-    plt.axvline(x=halpha, color='r')
+    plt.axvline(x= halpha, color='orange')
     # plot ha feature based on min/max value
-    plt.axvline(x=ha_value[0], color = 'b')
+    plt.axvline(x= value[0], color = 'b')
 
     # plot boundries of halpha measurements
-    for i in setrange(halpha):
+    for i in setrange(halpha, 5):
         plt.axvline(x=i, color='r', linestyle='--')
 
     # plot continuum
     plt.axhline(contupper, color='orange')  # go to get_ew2.py
     plt.axhline(contlower, color='orange')
     plt.axhline(continuum, color='red')
-    lower, upper = setrange(halpha)
+    lower, upper = setrange(halpha, 5)
     for i, j in zip(r, data):
         if i >= lower-10 and i <= lower:
             plt.axvline(x=i, linestyle='--', color='pink')
@@ -249,18 +253,19 @@ def ew_per_image(fitsimage, checkmode = False, plot = True):
     r = flux * dw + minw
 
     # clean investigation region of cosmic rays and define continuum region
-    continuum, contupper, contlower, c1, c2, ind2_nocr = find_continuum(r, data, flux)
+    continuum, contupper, contlower, c1, c2, ind2_nocr = find_continuum(r, data,halpha)
 
     # define region to investigate
-    ha_region, ha_value= find_feature(r, data, halpha, continuum, plot)
+    value = find_peak_of_feature(r, data, halpha, continuum, plot)
+
 
     # take the area under the curve
-    ew, area = measure_ew(ha_region, continuum, c1, c2, ind2_nocr)
+    ew, area = measure_ew(r, data, halpha, continuum, c1, c2, ind2_nocr)
 
     save_ew(fitsimage, ew)
 
     if plot:
-        plot_ew(halpha, contupper, contlower, continuum, area, r, data, ha_value)
+        plot_ew(halpha, contupper, contlower, continuum, area, r, data, value)
 
 
 def ew_per_directory(parent_directory):
