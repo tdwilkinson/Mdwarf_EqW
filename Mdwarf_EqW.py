@@ -22,6 +22,7 @@ halpha = 6562.801
 tio5 = 0
 
 # set up output file and header
+ew_dict = {}
 newfile = open('finalEW.txt', 'w')
 newfile.write('kicnumber' + '\t' + 'ha_ew' + '\t' + 'ha_ew_err' + '\n')
 
@@ -41,14 +42,14 @@ class EqWidth():
         flux = np.arange(0, len(self.y_data))
         self.x_wavelengths = flux * dw + minw
 
-        print self.y_data, self.x_wavelengths
+
 
     def find_feature_region(self, line):
         """
         """
 
         initial_region = {}
-        out_region = {}
+        feature_width = {}
         # this defines how many pixels out from the line to look
         lower, upper = setrange(line, 7)
         # store the region near feature
@@ -56,146 +57,75 @@ class EqWidth():
             if i >= lower and i <= upper:
                 initial_region[i] = j
 
-
         # find feature pixels near feature
         for i, j in zip(self.x_wavelengths, self.y_data):
             if j == min(initial_region.values()):
                 line_min = [i, j]
             elif j == max(initial_region.values()):
                 line_max = [i, j]
+
         # choose max or min feature based on depth
         if np.abs(np.mean(initial_region.values()) - line_min[1]) > np.abs(np.mean(initial_region.values()) - line_max[1]):
-            value = line_min
+            feature_peak = line_min
         else:
-            value = line_max
+            feature_peak = line_max
 
         # this defines how many pixels out from the feature to look
-        lower, upper = setrange(value[0], 7)
+        lower, upper = setrange(feature_peak[0], 7)
         for i, j in zip(self.x_wavelengths, self.y_data):
             if i >= lower and i <= upper:
-                out_region[i] = j
+                feature_width[i] = j
 
-        # save some info for use later
-        self.feature_peak = value
-        self.feature_region = out_region
+        return feature_width, feature_peak
 
-        return out_region
-
-    def map_feature(self, line, plot):
+    def map_feature(self, feature_width, feature_peak, line):
         """
         maps out the line feature to find where the curve turns over
+        feature_width is a dictionary
+        feature_peak is a 2d array
         returns: start and end pixel arrays of feature
 
         """
-        # TODO: work on this. refactor.
-
+        # store waves and flux values ordered and separated
         wave = []
         flux = []
-        weight = []
-        prewave = []
-        postwave = []
-        option1 = []
-        option2 = []
-        option3 = []
-        option4 = []
-
-        n = len(region.keys())
-        region_keys = sorted(region)
+        region_keys = sorted(feature_width)
         for i in region_keys:
             wave.append(i)
-            flux.append(region[i])
+            flux.append(feature_width[i])
 
-        # add weights to feature peak
-        for i in xrange(len(wave)):
-            if int(wave[i]) == int(value[0]):
-                w = 10
-            else:
-                w = 1
-            weight.append(w)
-
-        # calculate polynomial
-        fit = polyfit(wave, flux, 2, w=weight)
-        val = polyval(wave, fit)
-
-        # mark areas before the wave and after the wave
-        region_keys = sorted(region)
+        # store areas before the wave and after the wave
+        prewave = []
+        postwave = []
+        region_keys = sorted(feature_width)
         for i in region_keys:
-            if i <= value[0]:
-                prewave.append([i, region[i]])
-            elif i >= value[0]:
-                postwave.append([i, region[i]])
+            if i <= feature_peak[0]:
+                prewave.append([i, feature_width[i]])
+            elif i >= feature_peak[0]:
+                postwave.append([i, feature_width[i]])
 
-        # sorry repetition but follow each side of wave until turn over
-        for i in xrange(len(prewave) - 1, -1, -1):
-            if i >= 2:
-                first = prewave[i][1]
-                second = prewave[i - 1][1]
-                third = prewave[i - 2][1]
-                if first > second and second > third:
-                    option1.append(prewave[i])
-                elif first < second and second < third:
-                    option2.append(prewave[i])
+        start_point, end_point = base_point(prewave, postwave)
 
-        for i in xrange(0, len(postwave), 1):
-            if i < len(postwave) - 2:
-                first = postwave[i][1]
-                second = postwave[i + 1][1]
-                third = postwave[i + 2][1]
-                if first > second and second > third:
-                    option3.append(postwave[i])
-                elif first < second and second < third:
-                    option4.append(postwave[i])
+        self.base1 = start_point
+        self.base2 = end_point
 
-        # print option1
-        # print option2
-        # print option3
-        # print option4
+        return start_point, end_point
 
 
-        # determine where turnover is despite positive or negative slope of feature
-        if len(option1) < len(option2):
-            print len(option1), len(option2)
-            for i in option1:
-                print '1', i
-                start = option1[0]
-        else:
-            print len(option1), len(option2)
-            for i in option2:
-                print '2', i
-                start = option2[0]
-
-        if len(option3) < len(option4):
-            end = option3[0]
-
-        else:
-            end = option4[0]
-        return start, end, wave, val
-
-
-    def find_continuum(self, line):
+    def find_continuum(self, base1, base2, amount):
         """
         Define region just outside of halpha to be continuum
-        Currently set to 10 angstroms wide
+        base1 and base2 are 1D array of wavelength,flux values
         :return:
         """
-
+        # save the data in before and after pockets
         cont_range_preline = {}
         cont_range_postline = {}
 
-        # get feature region and the edges of it based on map feature
-
-
-        # print region.keys()
-        # print lowerbound, start_feature[0], end_feature[0],  upperbound
-
-        # define continuum region
-        # region_keys = sorted(region)
-        # for i in region_keys:
-        #      cont_range_preline[i] =
-        for i, j in zip(r, data):
-            if i >= lowerbound and i <= start_feature[0]:
+        for i, j in zip(self.x_wavelengths, self.y_data):
+            if i >= (int(base1[0]) - amount) and i <= int(base1[0]):
                 cont_range_preline[i] = j
-            elif i >= end_feature[0] and i <= upperbound + 5:
+            elif i >= int(base2[0]) and i <= (int(base2[0]) + amount):
                 cont_range_postline[i] = j
 
         # pre, post = remove_cosmic_ray(cont_range_preline, cont_range_postline)
@@ -205,44 +135,20 @@ class EqWidth():
         c2 = np.mean(cont_range_postline.values())
         continuum = np.mean([c1, c2])
 
-        return continuum, c1, c2, start_feature, end_feature, wave, val
+        return continuum, c1, c2
 
+    def measure_ew(self, feature_width, peak, base1, base2, continuum, c1, c2):
+        '''measure area under feature'''
 
-
-    def remove_cosmic_ray(region1, region2):
-        """ bounds to test what is good. outputs two dictionaries
-        """
-
-        upperbound = 1.25
-        lowerbound = 0.75
-
-        preline_nocr = {}
-        postline_nocr = {}
-
-        # remove cosmic rays from the continuum regions by setting limits
-        for n, (w, flux) in enumerate(dict_lines_region1.iteritems()):
-            if dict_lines_region1.values()[n - 1] < flux * upperbound and dict_lines_region1.values()[
-                        n - 1] > flux * lowerbound:
-                preline_nocr[w] = flux
-        for n, (w, flux) in enumerate(dict_lines_region2.iteritems()):
-            if dict_lines_region2.values()[n - 1] < flux * upperbound and dict_lines_region2.values()[
-                        n - 1] > flux * lowerbound:
-                postline_nocr[w] = flux
-        return preline_nocr, postline_nocr
-
-
-    def measure_ew(r, data, line, continuum, c1, c2, ind2_nocr):
-        # measure area under feature
-
+        print feature_width, peak, base1, base2, continuum
+        # take all data points in ha region and subtract continuum
         haflux = {}
-        region, lowerbound, upperbound = find_feature_region(r, data, line)
-
-        for wavelengths, fluxx in region.iteritems():  # take all data points in ha region and subtract continuum
+        for wavelengths, fluxx in feature_width.iteritems():
             feature = fluxx - continuum
             haflux[wavelengths] = feature
 
         area = trapz(haflux.values(), haflux.keys())  # sum all the feature data points
-        fluxerr = np.std(ind2_nocr.values())  # std in continuum noise
+        fluxerr =  np.std([c1,c2])  # std in continuum noise
 
         x = np.ones(len(haflux.values()))
         linerr = np.sqrt(trapz(haflux.values(), (fluxerr * x) ** 2))
@@ -251,67 +157,39 @@ class EqWidth():
 
         return ew, area
 
+    def plot_ew(self, line, peak, base1, base2, continuum, c1, c2, ew, area):
+        ''' plot to see what's being calculated   '''
 
-    def save_ew(fitsimage, ew):
-        """
-        output: text file with tab separated values of each kic number followed by EqW measurements
-        """
-
-        ew_dict = {}
-
-        fi = fitsimage.find('kic')
-        tmp = fitsimage[fi + 3:]
-        dot = tmp.find('.')
-        kic = int(tmp[:dot])  # gets just the kic number
-
-        if kic not in ew_dict.keys():
-            ew_dict[kic] = ew
-
-        # TODO: this vstack works, just need to apply weighted-average? to print best to finalEW.txt
-        # else:
-        #     stack = np.vstack((ew))
-        #     ew_dict[kic] = stack
-
-
-        for k, v in sorted(ew_dict.items()):
-            newfile.write(str(k) + '\t' + str(v[0]) + '\t' + str(v[1]) + '\n')
-
-
-    def plot_ew(halpha, continuum, c1, c2, area, r, data, value, start, end, wave, val):
         # plot halpha
-        plt.axvline(x=halpha, color='orange')
+        plt.axvline(x= line, color='pink')
+
+
         # plot ha feature based on min/max value
-        plt.axvline(x=value[0], color='b')
+        plt.axvline(x= peak[0], color='b' )
 
         # plot boundries of halpha measurements
-        plt.axvline(x=start[0], color='g')
-        plt.axvline(x=end[0], color='g')
+        plt.axvline(x=base1[0], color='g')
+        plt.axvline(x=base2[0], color='g')
+        plt.axvline(x=base1[0] - 7, linestyle='--', color = 'pink')
+        plt.axvline(x=base2[0] + 7, linestyle='--', color = 'pink')
 
         # plot continuum
-
         plt.axhline(c1, color='orange')  # go to get_ew2.py
         plt.axhline(c2, color='orange')
         plt.axhline(continuum, color='red')
-        lower, upper = setrange(halpha, 5)
 
-        # plt.axvline(x=i, linestyle='--', color='pink')
-        # plt.axvline(x=i, linestyle='--', color='pink')
-
-        # plt.fill_between(halpha, continuum)
+        plt.fill_between(peak, base1, base2)
 
         # for fitting a gaussian
         # a = setrange(halpha)
         # plt.plot(a ,gaus(a,*popt),'b*:',label='fit')
         # plt.plot(wave,flux,'o', x_new, y_new)
 
-        ## This one works but is not well fitted! plt.plot(wave, val, 'm')
-        # plt.xlim([wave[0]-1, x[-1] + 1 ])
-
-
         plt.plot(area, color='red')
-        plt.plot(r, data, color='black', linestyle='-', marker=',')
-        plt.xlim(6530, 6600)
 
+        plt.plot(self.x_wavelengths, self.y_data, color='black', linestyle='-', marker=',')
+        plt.xlim(6530, 6600)
+        plt.legend()
         plt.show()
 
     def final_plot():
@@ -329,6 +207,75 @@ class EqWidth():
 ########################################################################################################################
 ########################################################################################################################
 
+def base_point(prewave, postwave):
+    """
+    """
+
+    option1 = []
+    option2 = []
+    option3 = []
+    option4 = []
+
+    for i in xrange(len(prewave) - 1, -1, -1):
+        if i >= 2:
+            first = prewave[i][1]
+            second = prewave[i - 1][1]
+            third = prewave[i - 2][1]
+            if first > second and second > third:
+                option1.append(prewave[i])
+            elif first < second and second < third:
+                option2.append(prewave[i])
+
+    for i in xrange(0, len(postwave), 1):
+        if i < len(postwave) - 2:
+            first = postwave[i][1]
+            second = postwave[i + 1][1]
+            third = postwave[i + 2][1]
+            if first > second and second > third:
+                option3.append(postwave[i])
+            elif first < second and second < third:
+                option4.append(postwave[i])
+
+    # determine where turnover is despite positive or negative slope of feature
+    if len(option1) < len(option2):
+        print len(option1), len(option2)
+        for i in option1:
+            print '1', i
+            start_point = option1[0]
+    else:
+        print len(option1), len(option2)
+        for i in option2:
+            print '2', i
+            start_point = option2[0]
+
+    if len(option3) < len(option4):
+        end_point = option3[0]
+
+    else:
+        end_point = option4[0]
+
+    return start_point, end_point
+
+def remove_cosmic_ray(region1, region2):
+    """ bounds here for testing. outputs two dictionaries"""
+
+    upperbound = 1.25
+    lowerbound = 0.75
+
+    preline_nocr = {}
+    postline_nocr = {}
+
+    # remove cosmic rays from the continuum regions by setting limits
+    for n, (w, flux) in enumerate(dict_lines_region1.iteritems()):
+        if dict_lines_region1.values()[n - 1] < flux * upperbound and dict_lines_region1.values()[
+                    n - 1] > flux * lowerbound:
+            preline_nocr[w] = flux
+    for n, (w, flux) in enumerate(dict_lines_region2.iteritems()):
+        if dict_lines_region2.values()[n - 1] < flux * upperbound and dict_lines_region2.values()[
+                    n - 1] > flux * lowerbound:
+            postline_nocr[w] = flux
+
+    return preline_nocr, postline_nocr
 
 def roll(array, roll_amount):
     parameters = [array]
@@ -348,6 +295,8 @@ def setrange(line, amount):
     # for measuring continuum
     lower, upper = [line - amount, line + amount]
     return lower, upper
+
+
 def get_wavelength_calibrated_fits_files(input_directory):
         """
         Give the directory containing multiple folders of observing dates and data. This definition will go through
@@ -363,28 +312,40 @@ def get_wavelength_calibrated_fits_files(input_directory):
                     fits_path.append(os.path.join(root, name))
         return fits_path
 
+def save_ew(fitsimage, line, ew):
+    """output: text file with tab separated values of each kic number followed by EqW measurements"""
 
-def ew_per_directory(parent_directory):
+    fi = fitsimage.find('kic')
+    tmp = fitsimage[fi + 3:]
+    dot = tmp.find('.')
+    kic = int(tmp[:dot])  # gets just the kic number
+
+    if kic not in ew_dict.keys():
+        ew_dict[kic] = ew
+
+    for k, v in sorted(ew_dict.items()):
+        newfile.write(str(k) + '\t' + str(v[0]) + '\t' + str(v[1]) + '\n')
+
+
+def ew_per_directory(parent_directory, plot_per_image = True):
     """
     output: a text file in the output_directory for each .fits file starting with dkic
             found in the parent directory
     """
 
+    linelist = [halpha]
     path_list = get_wavelength_calibrated_fits_files(parent_directory)
     for image in path_list:
-        print image
-        region = EqWidth(image).find_feature_region(halpha)
-        peak = EqWidth(image).map_feature(region, halpha)
-        EqWidth(image).find_continuum(peak, halpha)
+        for line in linelist:
+            feature_width, peak = EqWidth(image).find_feature_region(line)
+            base1, base2 = EqWidth(image).map_feature(feature_width, peak, line)
+            continuum, c1, c2 = EqWidth(image).find_continuum(base1, base2, 7)
+            ew, area = EqWidth(image).measure_ew(feature_width, peak, base1, base2, continuum, c1, c2)
 
+            save_ew(image, line,ew)
 
-        # take the area under the curve
-        ew, area = measure_ew(r, data, halpha, continuum, c1, c2, ind2_nocr)
-
-        save_ew(fitsimage, ew)
-
-        if plot:
-            plot_ew(halpha, continuum, c1, c2, area, r, data, value, start, end, wave, val)
+        if plot_per_image:
+            EqWidth(image).plot_ew(line, peak, base1, base2, continuum, c1, c2, ew, area)
 
 
 
@@ -396,8 +357,5 @@ def ew_per_directory(parent_directory):
 
 
 # change this line to search a directory that contains directories or files.
-ew_per_directory('/home/tessa/astronomy/mdwarf/highres_data')
+ew_per_directory('/home/tessa/astronomy/mdwarf/highres_data', plot_per_image=True)
 newfile.close()
-
-eq1 = EqWidth()
-eq1.ew_per_image(path)
