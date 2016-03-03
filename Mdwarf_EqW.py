@@ -1,9 +1,8 @@
 __author__ = 'Tessa Wilkinson'
 """
-- run in python console
-- change the path at the bottom of the line to search a directory of UT directories for images.
- outfile: finalEW.txt
+- python run_mdew.py in a directory with images or a directory of directories with images
 """
+
 import os
 import numpy as np
 import pyfits
@@ -17,19 +16,11 @@ from scipy import asarray as ar, exp
 import itertools
 from numpy.polynomial.polynomial import polyfit, polyval
 
-# global variables = which lines to measure
-halpha = 6562.801
-tio5 = 0
-
-# set up output file and header
-ew_dict = {}
-newfile = open('finalEW.txt', 'w')
-newfile.write('kicnumber' + '\t' + 'ha_ew' + '\t' + 'ha_ew_err' + '\n')
-
 
 class EqWidth():
     """
     """
+
     def __init__(self, image_path):
 
         # define data:
@@ -45,8 +36,6 @@ class EqWidth():
         self.base1 = []
         self.base2 = []
 
-
-
     def find_feature_region(self, line):
         """
         """
@@ -57,11 +46,14 @@ class EqWidth():
         lower, upper = setrange(line, 7)
         # store the region near feature
         for i, j in zip(self.x_wavelengths, self.y_data):
-            if i >= lower and i <= upper:
+            if lower <= i <= upper:
                 initial_region[i] = j
 
         if len(initial_region) == 0:
             raise Exception('poor flux calibration!')
+
+        line_min = []
+        line_max = []
 
         # find feature pixels near feature
         for i, j in zip(self.x_wavelengths, self.y_data):
@@ -71,7 +63,8 @@ class EqWidth():
                 line_max = [i, j]
 
         # choose max or min feature based on depth
-        if np.abs(np.mean(initial_region.values()) - line_min[1]) > np.abs(np.mean(initial_region.values()) - line_max[1]):
+        if np.abs(np.mean(initial_region.values()) - line_min[1]) > np.abs(
+                        np.mean(initial_region.values()) - line_max[1]):
             feature_peak = line_min
         else:
             feature_peak = line_max
@@ -120,7 +113,6 @@ class EqWidth():
 
         return start_point, end_point, discription
 
-
     def find_continuum(self, base1, base2, width):
         """
         Define region just outside of halpha to be continuum
@@ -157,7 +149,7 @@ class EqWidth():
 
         # sum all the feature data points
         area = trapz(haflux.values(), haflux.keys())
-        fluxerr =  np.std([c1,c2])  # std in continuum noise
+        fluxerr = np.std([c1, c2])  # std in continuum noise
 
         x = np.ones(len(haflux.values()))
         linerr = np.sqrt(trapz(haflux.values(), (fluxerr * x) ** 2))
@@ -177,22 +169,22 @@ class EqWidth():
         # plt.plot(x, y, linestyle = '-', marker = ',', color = 'b')
         # plt.show()
 
-        return ew, area
+        return ew
 
     def plot_ew(self, line, peak, base1, base2, continuum, c1, c2):
         ''' plot to see what's being calculated   '''
 
         # plot halpha
-        plt.axvline(x= line, color='pink')
+        plt.axvline(x=line, color='pink')
 
         # plot ha feature based on min/max value
-        plt.axvline(x= peak[0], color='b' )
+        plt.axvline(x=peak[0], color='b')
 
         # plot boundries of halpha measurements
         plt.axvline(x=base1[0], color='g')
         plt.axvline(x=base2[0], color='g')
-        plt.axvline(x=base1[0] - 5, linestyle='--', color = 'pink')
-        plt.axvline(x=base2[0] + 5, linestyle='--', color = 'pink')
+        plt.axvline(x=base1[0] - 5, linestyle='--', color='pink')
+        plt.axvline(x=base2[0] + 5, linestyle='--', color='pink')
 
         # plot continuum
         plt.axhline(c1, color='orange')  # go to get_ew2.py
@@ -203,7 +195,7 @@ class EqWidth():
         plt.xlim(6530, 6600)
         plt.show()
 
-    def final_plot():
+    def final_plot(self, ew):
         """
 
         :return: plot output values of ew per star
@@ -211,12 +203,12 @@ class EqWidth():
 
         kicnumber, ha, ha_err = np.loadtxt('finalEW.txt', dtype=(int, float, float), skiprows=1, unpack=True)
 
-        #print kicnumber, ha, ha_err
-
+        # print kicnumber, ha, ha_err
 
 
 ########################################################################################################################
 ########################################################################################################################
+
 
 def base_point(prewave, postwave, featurepeak):
     """ Looks at the two halfs of a line feature and finds the turn point at the bases    """
@@ -224,15 +216,17 @@ def base_point(prewave, postwave, featurepeak):
     # find the slopes by comparing the first point in the wave to the peak in the feature
     preslope = slope(prewave[0], featurepeak)
     postslope = slope(featurepeak, postwave[-1])
-    if preslope < 0 and postslope > 0:
+
+    dip = True
+
+    if preslope < 0 < postslope:
         str_feature = 'absorption'
         dip = True
-    elif preslope > 0 and postslope < 0:
+    elif preslope > 0 > postslope:
         str_feature = 'emission!'
         dip = False
     else:
         print 'borked'
-
 
     # now check where the turning point is : where its no longer + or -
     greenline1 = prewave[0]
@@ -240,24 +234,25 @@ def base_point(prewave, postwave, featurepeak):
 
     if dip:
         for i, e in list(enumerate(postwave)):
-            if i < len(postwave)-2 and postwave[i][1] > postwave[i+1][1]:
+            if i < len(postwave) - 2 and postwave[i][1] > postwave[i + 1][1]:
                 greenline2 = postwave[i]
                 break
         for i, e in reversed(list(enumerate(prewave))):
-             if i > 0 and prewave[i][1] > prewave[i-1][1]:
+            if i > 0 and prewave[i][1] > prewave[i - 1][1]:
                 greenline1 = prewave[i]
                 break
     else:
         for i, e in list(enumerate(postwave)):
-            if i < len(postwave)-2 and postwave[i][1] < postwave[i+1][1]:
+            if i < len(postwave) - 2 and postwave[i][1] < postwave[i + 1][1]:
                 greenline2 = postwave[i]
                 break
         for i, e in reversed(list(enumerate(prewave))):
-             if i > 0 and prewave[i][1] < prewave[i-1][1]:
+            if i > 0 and prewave[i][1] < prewave[i - 1][1]:
                 greenline1 = prewave[i]
                 break
 
     return str_feature, greenline1, greenline2
+
 
 def remove_cosmic_ray(region1, region2):
     """ bounds here for testing. outputs two dictionaries"""
@@ -280,16 +275,13 @@ def remove_cosmic_ray(region1, region2):
 
     return preline_nocr, postline_nocr
 
-def roll(array, roll_amount):
-    parameters = [array]
-    ar = np.roll(array, 1)
-    return ar
 
 def slope(list1, list2):
-    '''  change in y / change in x , comparing start to mid and mid to end points'''
-    w1, f1 =  list1
+    """  change in y / change in x , comparing start to mid and mid to end points"""
+    w1, f1 = list1
     w2, f2 = list2
     return (f2 - f1) / (w2 - w1)
+
 
 def gaus(x, a, x0, sigma):
     return a * exp(-(x - x0) ** 2 / (2 * sigma ** 2))
@@ -303,71 +295,3 @@ def setrange(line, amount):
     # for measuring continuum
     lower, upper = [line - amount, line + amount]
     return lower, upper
-
-
-def get_wavelength_calibrated_fits_files(input_directory):
-        """
-        Give the directory containing multiple folders of observing dates and data. This definition will go through
-        and look for the wavelength calibrated fits images and save their path locations to a list.
-        output = list of paths to fits files
-        """
-        check = []
-        fits_path = []
-        for root, dirs, files in os.walk(input_directory, topdown=False):
-            for name in files:
-                if (os.path.join(root, name)) not in check and name.startswith('dkic') and name.endswith('.fits'):
-                    check.append(os.path.join(root, name))
-                    fits_path.append(os.path.join(root, name))
-        return fits_path
-
-def save_ew(fitsimage, line, ew):
-    """output: text file with tab separated values of each kic number followed by EqW measurements"""
-
-    fi = fitsimage.find('kic')
-    tmp = fitsimage[fi + 3:]
-    dot = tmp.find('.')
-    kic = int(tmp[:dot])  # gets just the kic number
-
-    if kic not in ew_dict.keys():
-        ew_dict[kic] = ew
-
-    for k, v in sorted(ew_dict.items()):
-        newfile.write(str(k) + '\t' + str(v[0]) + '\t' + str(v[1]) + '\n')
-
-
-def ew_per_directory(parent_directory, plot_per_image = True):
-    """
-    output: a text file in the output_directory for each .fits file starting with dkic
-            found in the parent directory
-    """
-
-    linelist = [halpha]
-    path_list = get_wavelength_calibrated_fits_files(parent_directory)
-    for image in path_list:
-        for line in linelist:
-            try:
-                feature_width, peak = EqWidth(image).find_feature_region(line)
-            except Exception:
-                pass
-            else:
-                base1, base2, description = EqWidth(image).map_feature(feature_width, peak, line)
-                continuum, c1, c2 = EqWidth(image).find_continuum(base1, base2, 5)
-                ew = EqWidth(image).measure_ew(feature_width, peak, continuum, c1, c2)
-
-                print description
-                save_ew(image, line,ew)
-
-
-                if plot_per_image:
-                    EqWidth(image).plot_ew(line, peak, base1, base2, continuum, c1, c2)
-
-
-# TODO: make sure multiple files for one star or stored or appended in list (see todo above)
-# TODO: separate ones with magnetic activity
-# TODO: add in looking at other bands
-# TODO: plot output values (maybe in new file)
-
-
-# change this line to search a directory that contains directories or files.
-ew_per_directory('/home/tessa/astronomy/mdwarf/highres_data', plot_per_image=False)
-newfile.close()
