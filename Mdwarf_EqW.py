@@ -104,12 +104,12 @@ class EqWidth():
             elif i >= feature_peak[0]:
                 postwave.append([i, feature_width[i]])
 
-        start_point, end_point = base_point(prewave, postwave)
+        discription, start_point, end_point = base_point(prewave, postwave, feature_peak)
 
         self.base1 = start_point
         self.base2 = end_point
 
-        return start_point, end_point
+        return start_point, end_point, discription
 
 
     def find_continuum(self, base1, base2, amount):
@@ -140,14 +140,14 @@ class EqWidth():
     def measure_ew(self, feature_width, peak, base1, base2, continuum, c1, c2):
         '''measure area under feature'''
 
-        print feature_width, peak, base1, base2, continuum
         # take all data points in ha region and subtract continuum
         haflux = {}
         for wavelengths, fluxx in feature_width.iteritems():
             feature = fluxx - continuum
             haflux[wavelengths] = feature
 
-        area = trapz(haflux.values(), haflux.keys())  # sum all the feature data points
+        # sum all the feature data points
+        area = trapz(haflux.values(), haflux.keys())
         fluxerr =  np.std([c1,c2])  # std in continuum noise
 
         x = np.ones(len(haflux.values()))
@@ -157,12 +157,11 @@ class EqWidth():
 
         return ew, area
 
-    def plot_ew(self, line, peak, base1, base2, continuum, c1, c2, ew, area):
+    def plot_ew(self, line, peak, base1, base2, continuum, c1, c2, ew):
         ''' plot to see what's being calculated   '''
 
         # plot halpha
         plt.axvline(x= line, color='pink')
-
 
         # plot ha feature based on min/max value
         plt.axvline(x= peak[0], color='b' )
@@ -170,26 +169,16 @@ class EqWidth():
         # plot boundries of halpha measurements
         plt.axvline(x=base1[0], color='g')
         plt.axvline(x=base2[0], color='g')
-        plt.axvline(x=base1[0] - 7, linestyle='--', color = 'pink')
-        plt.axvline(x=base2[0] + 7, linestyle='--', color = 'pink')
+        plt.axvline(x=base1[0] - 5, linestyle='--', color = 'pink')
+        plt.axvline(x=base2[0] + 5, linestyle='--', color = 'pink')
 
         # plot continuum
         plt.axhline(c1, color='orange')  # go to get_ew2.py
         plt.axhline(c2, color='orange')
         plt.axhline(continuum, color='red')
 
-        plt.fill_between(peak, base1, base2)
-
-        # for fitting a gaussian
-        # a = setrange(halpha)
-        # plt.plot(a ,gaus(a,*popt),'b*:',label='fit')
-        # plt.plot(wave,flux,'o', x_new, y_new)
-
-        plt.plot(area, color='red')
-
         plt.plot(self.x_wavelengths, self.y_data, color='black', linestyle='-', marker=',')
         plt.xlim(6530, 6600)
-        plt.legend()
         plt.show()
 
     def final_plot():
@@ -200,61 +189,49 @@ class EqWidth():
 
         kicnumber, ha, ha_err = np.loadtxt('finalEW.txt', dtype=(int, float, float), skiprows=1, unpack=True)
 
-        print kicnumber, ha, ha_err
+        #print kicnumber, ha, ha_err
 
 
 
 ########################################################################################################################
 ########################################################################################################################
 
-def base_point(prewave, postwave):
-    """
-    """
+def base_point(prewave, postwave, featurepeak):
+    """ Looks at the two halfs of a line feature and finds the turn point at the bases    """
 
-    option1 = []
-    option2 = []
-    option3 = []
-    option4 = []
-
-    for i in xrange(len(prewave) - 1, -1, -1):
-        if i >= 2:
-            first = prewave[i][1]
-            second = prewave[i - 1][1]
-            third = prewave[i - 2][1]
-            if first > second and second > third:
-                option1.append(prewave[i])
-            elif first < second and second < third:
-                option2.append(prewave[i])
-
-    for i in xrange(0, len(postwave), 1):
-        if i < len(postwave) - 2:
-            first = postwave[i][1]
-            second = postwave[i + 1][1]
-            third = postwave[i + 2][1]
-            if first > second and second > third:
-                option3.append(postwave[i])
-            elif first < second and second < third:
-                option4.append(postwave[i])
-
-    # determine where turnover is despite positive or negative slope of feature
-    if len(option1) < len(option2):
-        print len(option1), len(option2)
-        for i in option1:
-            print '1', i
-            start_point = option1[0]
+    # find the slopes by comparing the first point in the wave to the peak in the feature
+    preslope = slope(prewave[0], featurepeak)
+    postslope = slope(featurepeak, postwave[-1])
+    if preslope < 0 and postslope > 0:
+        str_feature = 'absorption'
+        dip = True
+    elif preslope > 0 and postslope < 0:
+        str_feature = 'emission!'
+        dip = False
     else:
-        print len(option1), len(option2)
-        for i in option2:
-            print '2', i
-            start_point = option2[0]
+        print 'borked'
 
-    if len(option3) < len(option4):
-        end_point = option3[0]
-
+    # now check where the turning point is : where its no longer + or -
+    if dip:
+        for i, e in list(enumerate(postwave)):
+            if i < len(postwave)-2 and postwave[i][1] > postwave[i+1][1]:
+                greenline2 = postwave[i]
+                break
+        for i, e in reversed(list(enumerate(prewave))):
+             if i > 0 and prewave[i][1] > prewave[i-1][1]:
+                greenline1 = prewave[i]
+                break
     else:
-        end_point = option4[0]
+        for i, e in list(enumerate(postwave)):
+            if i < len(postwave)-2 and postwave[i][1] < postwave[i+1][1]:
+                greenline2 = postwave[i]
+                break
+        for i, e in reversed(list(enumerate(prewave))):
+             if i > 0 and prewave[i][1] < prewave[i-1][1]:
+                greenline1 = prewave[i]
+                break
 
-    return start_point, end_point
+    return str_feature, greenline1, greenline2
 
 def remove_cosmic_ray(region1, region2):
     """ bounds here for testing. outputs two dictionaries"""
@@ -282,6 +259,11 @@ def roll(array, roll_amount):
     ar = np.roll(array, 1)
     return ar
 
+def slope(list1, list2):
+    '''  change in y / change in x , comparing start to mid and mid to end points'''
+    w1, f1 =  list1
+    w2, f2 = list2
+    return (f2 - f1) / (w2 - w1)
 
 def gaus(x, a, x0, sigma):
     return a * exp(-(x - x0) ** 2 / (2 * sigma ** 2))
@@ -338,16 +320,16 @@ def ew_per_directory(parent_directory, plot_per_image = True):
     for image in path_list:
         for line in linelist:
             feature_width, peak = EqWidth(image).find_feature_region(line)
-            base1, base2 = EqWidth(image).map_feature(feature_width, peak, line)
-            continuum, c1, c2 = EqWidth(image).find_continuum(base1, base2, 7)
-            ew, area = EqWidth(image).measure_ew(feature_width, peak, base1, base2, continuum, c1, c2)
+            base1, base2, discription = EqWidth(image).map_feature(feature_width, peak, line)
+            continuum, c1, c2 = EqWidth(image).find_continuum(base1, base2, 5)
+            ew = EqWidth(image).measure_ew(feature_width, peak, base1, base2, continuum, c1, c2)
 
+            print discription
             save_ew(image, line,ew)
 
+
         if plot_per_image:
-            EqWidth(image).plot_ew(line, peak, base1, base2, continuum, c1, c2, ew, area)
-
-
+            EqWidth(image).plot_ew(line, peak, base1, base2, continuum, c1, c2, ew)
 
 
 # TODO: make sure multiple files for one star or stored or appended in list (see todo above)
