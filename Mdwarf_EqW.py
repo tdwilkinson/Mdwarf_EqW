@@ -14,6 +14,7 @@ import pandas as pd
 from numpy import trapz  # trapezoidal sum of the area
 from scipy.optimize import curve_fit
 from scipy import asarray as ar,exp
+import itertools
 
 # global variables = which lines to measure
 halpha = 6562.801
@@ -44,16 +45,16 @@ def get_wavelength_calibrated_fits_files(input_directory):
 def find_feature_region(r, data, line):
 
     region = {}
-    lowerbound, upperbound = setrange(line, 5)
+    lowerbound, upperbound = setrange(line, 7)
 
     # store the region near feature
     for i, j in zip(r, data):
         if i >= lowerbound and i <= upperbound:
             region[i] = j
 
-    return region, lowerbound, upperbound
+    return region , lowerbound, upperbound
 
-def find_peak_of_feature(r, data,line , continuum, plot):
+def find_peak_of_feature(r, data, line, plot):
     """
      define halpha
     halpha = 6563 as defined above. value is to find the min/max point of features nearest the line
@@ -71,18 +72,83 @@ def find_peak_of_feature(r, data,line , continuum, plot):
             line_max = [i, j]
 
     # choose max or min feature based on depth
-    if np.abs(continuum - line_min[1]) > np.abs(continuum - line_max[1]):
+    if np.abs(np.mean(region.values()) - line_min[1]) > np.abs(np.mean(region.values()) - line_max[1]):
         value = line_min
     else:
         value = line_max
 
     # look for turnover near continuum (# TODO: gaussian fit?)
     for n, flux in enumerate(region.values()):
-        if int(flux) == int(value[1]):
             index = n
 
     return value
 
+def float_to_int(float_n):
+
+    decimal = str(float_n).find('.')
+    integer = int(str(float_n)[:decimal]) - 1
+
+    return integer
+
+def map_feature(r, data,line, plot):
+    """
+    maps out the line feature to find where the curve turns over
+    returns: start and end pixel arrays of feature
+
+    """
+
+    region, lowerbound, upperbound = find_feature_region(r, data, line)
+    value = find_peak_of_feature(r, data, line, plot)
+
+    prewave = []
+    postwave = []
+    option1 = []
+    option2 = []
+    option3 = []
+    option4 = []
+
+    # mark areas before the wave and after the wave
+    region_keys = sorted(region)
+    for i in region_keys:
+        if i <= value[0]:
+            prewave.append([i, region[i]])
+        elif i >= value[0]:
+            postwave.append([i, region[i]])
+
+    # sorry repetition but follow each side of wave until turn over
+    for i in xrange(len(prewave)-1, -1, -1):
+        if i >= 2:
+            first = prewave[i][1]
+            second = prewave[i-1][1]
+            third = prewave[i-2][1]
+            if first > second and second > third:
+                option1.append([prewave[i],first])
+            elif first < second and second < third:
+                option2.append([prewave[i], first])
+
+    for i in xrange(0,len(postwave), 1):
+        if i < len(postwave)-2:
+            first = postwave[i][1]
+            second = postwave[i+1][1]
+            third = postwave[i+2][1]
+            if first > second and second > third:
+                option3.append([postwave[i],first])
+            elif first < second and second < third:
+                option4.append([postwave[i],first])
+
+    # determine where turnover is despite positive or negative slope of feature
+    if len(option1) < len(option2):
+        start = option1[0][0]
+    else:
+        start = option2[0][0]
+    if len(option3) < len(option4):
+        end = option3[0][0]
+    else:
+        end = option4[0][0]
+
+    return  start, end
+
+    # for gaussian fit?
     # n = len(region_data)
     # print n
     # z = [region, region_data]
@@ -102,38 +168,37 @@ def setrange(line, amount):
     lower, upper = [line - amount, line + amount]
     return lower, upper
 
-def find_continuum(r, data, line):
+def find_continuum(r, data, line, plot):
     """
     Define region just outside of halpha to be continuum
     Currently set to 10 angstroms wide
     :return:
     """
-    # TODO: set ha check to get max or min value in range
-    # TODO: then set continuum to be much closer to actual ha dip/peak
 
     cont_range_preline = {}
     cont_range_postline = {}
 
     region, lowerbound, upperbound = find_feature_region(r, data, line)
+    start_feature, end_feature = map_feature(r, data,line, plot)
 
-    # define continuum outside of feature region
+    # # define continuum outside of feature region
     for i, j in zip(r, data):
-
-        if i >= lowerbound - 10 and i <= lowerbound:
+        if i >= lowerbound and i <= start_feature[0]:
             cont_range_preline[i] = j
-        elif i >= upperbound and i <= upperbound + 10:
+        elif i >= end_feature[0] and i <= upperbound:
             cont_range_postline[i] = j
 
     pre, post = remove_cosmic_ray(cont_range_preline, cont_range_postline,1.25, 0.75)
 
     # define continuum
-    c1 = np.mean(pre.values())
-    c2 = np.mean(post.values())
+    c1 = np.mean(cont_range_preline.values())
+    c2 = np.mean(cont_range_postline.values())
     continuum = np.mean([c1, c2])
+
     contupper = continuum * 1.25  # limits for graphing
     contlower = continuum * .75  # limits for graphing
 
-    return continuum, contupper, contlower, c1, c2, post
+    return continuum, contupper, contlower, c1, c2, post, start_feature, end_feature
 
 def remove_cosmic_ray(dict_lines_region1, dict_lines_region2, upperbound, lowerbound):
     """ bounds to test what is good. outputs two dictionaries
@@ -201,16 +266,17 @@ def save_ew(fitsimage, ew):
         newfile.write(str(k) + '\t' + str(v[0]) + '\t' + str(v[1]) + '\n')
 
 
-def plot_ew(halpha, contupper, contlower, continuum, area, r, data, value):
+def plot_ew(halpha, contupper, contlower, continuum, area, r, data, value, start, end):
 
+    print start, end
     # plot halpha
     plt.axvline(x= halpha, color='orange')
     # plot ha feature based on min/max value
     plt.axvline(x= value[0], color = 'b')
 
     # plot boundries of halpha measurements
-    for i in setrange(halpha, 5):
-        plt.axvline(x=i, color='r', linestyle='--')
+    plt.axvline(x= start[0], color = 'g')
+    plt.axvline(x= end[0], color = 'g')
 
     # plot continuum
     plt.axhline(contupper, color='orange')  # go to get_ew2.py
@@ -236,6 +302,22 @@ def plot_ew(halpha, contupper, contlower, continuum, area, r, data, value):
 
     plt.show()
 
+def roll(array, roll_amount):
+
+    parameters = [array]
+    ar = np.roll(array,1)
+
+    return ar
+
+def ew_per_directory(parent_directory):
+    """
+    output: a text file in the output_directory for each .fits file starting with dkic
+            found in the parent directory
+    """
+
+    path_list = get_wavelength_calibrated_fits_files(parent_directory)
+    for path in path_list:
+        ew_per_image(path)
 
 
 def ew_per_image(fitsimage, checkmode = False, plot = True):
@@ -253,11 +335,10 @@ def ew_per_image(fitsimage, checkmode = False, plot = True):
     r = flux * dw + minw
 
     # clean investigation region of cosmic rays and define continuum region
-    continuum, contupper, contlower, c1, c2, ind2_nocr = find_continuum(r, data,halpha)
+    continuum, contupper, contlower, c1, c2, ind2_nocr , start, end = find_continuum(r, data,halpha, plot)
 
     # define region to investigate
-    value = find_peak_of_feature(r, data, halpha, continuum, plot)
-
+    value = find_peak_of_feature(r, data, halpha, plot)
 
     # take the area under the curve
     ew, area = measure_ew(r, data, halpha, continuum, c1, c2, ind2_nocr)
@@ -265,28 +346,7 @@ def ew_per_image(fitsimage, checkmode = False, plot = True):
     save_ew(fitsimage, ew)
 
     if plot:
-        plot_ew(halpha, contupper, contlower, continuum, area, r, data, value)
-
-
-def ew_per_directory(parent_directory):
-    """
-    output: a text file in the output_directory for each .fits file starting with dkic
-            found in the parent directory
-    """
-
-    path_list = get_wavelength_calibrated_fits_files(parent_directory)
-    for path in path_list:
-        ew_per_image(path)
-
-
-
-
-def roll(array, roll_amount):
-
-    parameters = [array]
-    ar = np.roll(array,1)
-
-    return ar
+        plot_ew(halpha, contupper, contlower, continuum, area, r, data, value, start, end)
 
 
 def final_plot():
