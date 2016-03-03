@@ -42,6 +42,9 @@ class EqWidth():
         flux = np.arange(0, len(self.y_data))
         self.x_wavelengths = flux * dw + minw
 
+        self.base1 = []
+        self.base2 = []
+
 
 
     def find_feature_region(self, line):
@@ -56,6 +59,9 @@ class EqWidth():
         for i, j in zip(self.x_wavelengths, self.y_data):
             if i >= lower and i <= upper:
                 initial_region[i] = j
+
+        if len(initial_region) == 0:
+            raise Exception('poor flux calibration!')
 
         # find feature pixels near feature
         for i, j in zip(self.x_wavelengths, self.y_data):
@@ -104,6 +110,9 @@ class EqWidth():
             elif i >= feature_peak[0]:
                 postwave.append([i, feature_width[i]])
 
+        self.prewave = prewave
+        self.postwave = postwave
+
         discription, start_point, end_point = base_point(prewave, postwave, feature_peak)
 
         self.base1 = start_point
@@ -112,7 +121,7 @@ class EqWidth():
         return start_point, end_point, discription
 
 
-    def find_continuum(self, base1, base2, amount):
+    def find_continuum(self, base1, base2, width):
         """
         Define region just outside of halpha to be continuum
         base1 and base2 are 1D array of wavelength,flux values
@@ -123,9 +132,9 @@ class EqWidth():
         cont_range_postline = {}
 
         for i, j in zip(self.x_wavelengths, self.y_data):
-            if i >= (int(base1[0]) - amount) and i <= int(base1[0]):
+            if i >= (int(base1[0]) - width) and i <= int(base1[0]):
                 cont_range_preline[i] = j
-            elif i >= int(base2[0]) and i <= (int(base2[0]) + amount):
+            elif i >= int(base2[0]) and i <= (int(base2[0]) + width):
                 cont_range_postline[i] = j
 
         # pre, post = remove_cosmic_ray(cont_range_preline, cont_range_postline)
@@ -137,7 +146,7 @@ class EqWidth():
 
         return continuum, c1, c2
 
-    def measure_ew(self, feature_width, peak, base1, base2, continuum, c1, c2):
+    def measure_ew(self, feature_width, peak, continuum, c1, c2):
         '''measure area under feature'''
 
         # take all data points in ha region and subtract continuum
@@ -155,9 +164,22 @@ class EqWidth():
         ha_err = np.sqrt((linerr / (continuum)) ** 2 + (area / (continuum) ** 2 * np.std([c1, c2])) ** 2)
         ew = [area / continuum, ha_err]
 
+        # x = []
+        # y = []
+        # for i in prewave:
+        #     x.append(i[0])
+        #     y.append(i[1])
+        # x.append(featurepeak[0])
+        # y.append(featurepeak[1])
+        # for i in postwave:
+        #     x.append(i[0])
+        #     y.append(i[1])
+        # plt.plot(x, y, linestyle = '-', marker = ',', color = 'b')
+        # plt.show()
+
         return ew, area
 
-    def plot_ew(self, line, peak, base1, base2, continuum, c1, c2, ew):
+    def plot_ew(self, line, peak, base1, base2, continuum, c1, c2):
         ''' plot to see what's being calculated   '''
 
         # plot halpha
@@ -211,7 +233,11 @@ def base_point(prewave, postwave, featurepeak):
     else:
         print 'borked'
 
+
     # now check where the turning point is : where its no longer + or -
+    greenline1 = prewave[0]
+    greenline2 = postwave[-1]
+
     if dip:
         for i, e in list(enumerate(postwave)):
             if i < len(postwave)-2 and postwave[i][1] > postwave[i+1][1]:
@@ -319,17 +345,21 @@ def ew_per_directory(parent_directory, plot_per_image = True):
     path_list = get_wavelength_calibrated_fits_files(parent_directory)
     for image in path_list:
         for line in linelist:
-            feature_width, peak = EqWidth(image).find_feature_region(line)
-            base1, base2, discription = EqWidth(image).map_feature(feature_width, peak, line)
-            continuum, c1, c2 = EqWidth(image).find_continuum(base1, base2, 5)
-            ew = EqWidth(image).measure_ew(feature_width, peak, base1, base2, continuum, c1, c2)
+            try:
+                feature_width, peak = EqWidth(image).find_feature_region(line)
+            except Exception:
+                pass
+            else:
+                base1, base2, description = EqWidth(image).map_feature(feature_width, peak, line)
+                continuum, c1, c2 = EqWidth(image).find_continuum(base1, base2, 5)
+                ew = EqWidth(image).measure_ew(feature_width, peak, continuum, c1, c2)
 
-            print discription
-            save_ew(image, line,ew)
+                print description
+                save_ew(image, line,ew)
 
 
-        if plot_per_image:
-            EqWidth(image).plot_ew(line, peak, base1, base2, continuum, c1, c2, ew)
+                if plot_per_image:
+                    EqWidth(image).plot_ew(line, peak, base1, base2, continuum, c1, c2)
 
 
 # TODO: make sure multiple files for one star or stored or appended in list (see todo above)
@@ -339,5 +369,5 @@ def ew_per_directory(parent_directory, plot_per_image = True):
 
 
 # change this line to search a directory that contains directories or files.
-ew_per_directory('/home/tessa/astronomy/mdwarf/highres_data', plot_per_image=True)
+ew_per_directory('/home/tessa/astronomy/mdwarf/highres_data', plot_per_image=False)
 newfile.close()
