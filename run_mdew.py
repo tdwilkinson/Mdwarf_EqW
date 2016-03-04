@@ -15,14 +15,22 @@ import numpy as np
 filepath = '/home/tessa/astronomy/mdwarf/highres_data'
 
 halpha = 6562.801
-tio5 = 0
+tio1 = 6708
+tio2 = 7046
+tio3 = 7084
+tio4 = 7120
+tio5 = 7046
+cah2 = 7042
+caoh = 6830
+o2 = 6830
+n0 = 5895
 
-linelist = [halpha]
+linelist = [halpha, tio1, tio2, tio3, tio4, tio5, cah2, caoh, o2, n0]
 
 # set up output file and header
 ew_dict = {}
 newfile = open('finalEW.txt', 'w')
-newfile.write('kic_number' + '\t' + 'ha_ew' + '\t' + 'ha_ew_err' + '\t' + 'tio5' + '\t' + 'tio5_err''\n')
+# newfile.write('kic_number' + '\t' + 'ha_ew' + '\t' + 'ha_ew_err' + '\t' + 'tio5' + '\t' + 'tio5_err''\n')
 
 
 def get_wavelength_calibrated_fits_files(input_directory):
@@ -41,7 +49,7 @@ def get_wavelength_calibrated_fits_files(input_directory):
     return fits_path
 
 
-def save_ew(fitsimage, ew):
+def save_ew(fitsimage, line, ew):
     """output: text file with tab separated values of each kic number followed by EqW measurements"""
 
     fi = fitsimage.find('kic')
@@ -49,11 +57,14 @@ def save_ew(fitsimage, ew):
     dot = tmp.find('.')
     kic = int(tmp[:dot])  # gets just the kic number
 
+    measurement = {}
+    measurement[line] = ew
+
+
     if kic not in ew_dict.keys():
-        ew_dict[kic] = ew
-    else:
-        stack = np.hstack((kic, ew))
-        ew_dict[kic] = stack
+        ew_dict[kic] = measurement
+    stack = np.hstack((ew_dict[kic], measurement))
+    ew_dict[kic] = stack
 
 
 def ew_per_directory(parent_directory, plot_per_image=True):
@@ -63,7 +74,6 @@ def ew_per_directory(parent_directory, plot_per_image=True):
     output: a text file in the output_directory for each .fits file starting with dkic
             found in the parent directory
     """
-
     path_list = get_wavelength_calibrated_fits_files(parent_directory)
     for image in path_list:
         for line in linelist:
@@ -72,12 +82,12 @@ def ew_per_directory(parent_directory, plot_per_image=True):
             except Exception:
                 pass
             else:
-                base1, base2, description = ME.EqWidth(image).map_feature(feature_width, peak, line)
+                base1, base2, description, prewave, postwave = ME.EqWidth(image).map_feature(feature_width, peak, line)
                 continuum, c1, c2 = ME.EqWidth(image).find_continuum(base1, base2, 5)
-                ew = ME.EqWidth(image).measure_ew(feature_width, peak, continuum, c1, c2)
+                ew = ME.EqWidth(image).measure_ew(feature_width, peak, continuum, c1, c2, prewave, postwave, plot_region = False)
 
-                print description
-                save_ew(image, ew)
+                #print description
+                save_ew(image, line, ew)
 
                 if plot_per_image:
                     ME.EqWidth(image).plot_ew(line, peak, base1, base2, continuum, c1, c2)
@@ -87,11 +97,12 @@ def ew_per_directory(parent_directory, plot_per_image=True):
 # TODO: separate ones with magnetic activity
 # TODO: add in looking at other bands
 # TODO: plot output values (maybe in new file)
-
 # change this line to search a directory that contains directories or files.
 ew_per_directory(filepath, plot_per_image=False)
 
 # write output to file:
 for k, v in sorted(ew_dict.items()):
-    newfile.write(str(k) + '\t' + str(v[0]) + '\t' + str(v[1]) + '\n')
+    print k, v
+    newfile.write(str(k) + '\t' +  str(v) + '\n')
+
 newfile.close()
