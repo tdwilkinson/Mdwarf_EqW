@@ -17,9 +17,8 @@ import itertools
 from numpy.polynomial.polynomial import polyfit, polyval
 
 
-class EqWidth():
-    """
-    """
+class EqWidth:
+    """ The whole sha-bang that finds feature equivalent widths """
 
     def __init__(self, image_path):
 
@@ -35,6 +34,8 @@ class EqWidth():
 
         self.base1 = []
         self.base2 = []
+        self.prewave = []
+        self.postwave = []
 
     def find_feature_region(self, line):
         """
@@ -64,7 +65,7 @@ class EqWidth():
 
         # choose max or min feature based on depth
         if np.abs(np.mean(initial_region.values()) - line_min[1]) > np.abs(
-                        np.mean(initial_region.values()) - line_max[1]):
+                np.mean(initial_region.values()) - line_max[1]):
             feature_peak = line_min
         else:
             feature_peak = line_max
@@ -72,7 +73,7 @@ class EqWidth():
         # this defines how many pixels out from the feature to look
         lower, upper = setrange(feature_peak[0], 7)
         for i, j in zip(self.x_wavelengths, self.y_data):
-            if i >= lower and i <= upper:
+            if lower <= i <= upper:
                 feature_width[i] = j
 
         return feature_width, feature_peak
@@ -104,14 +105,14 @@ class EqWidth():
                 postwave.append([i, feature_width[i]])
 
         self.prewave = prewave
-        self.postwave = postwave
+        self.postwave = postwave  #TODO: not quite working yet! need to fix declaring selfs
 
         discription, start_point, end_point = base_point(prewave, postwave, feature_peak)
 
         self.base1 = start_point
         self.base2 = end_point
 
-        return start_point, end_point, discription
+        return start_point, end_point, discription, prewave, postwave
 
     def find_continuum(self, base1, base2, width):
         """
@@ -124,9 +125,9 @@ class EqWidth():
         cont_range_postline = {}
 
         for i, j in zip(self.x_wavelengths, self.y_data):
-            if i >= (int(base1[0]) - width) and i <= int(base1[0]):
+            if (int(base1[0]) - width) <= i <= int(base1[0]):
                 cont_range_preline[i] = j
-            elif i >= int(base2[0]) and i <= (int(base2[0]) + width):
+            elif int(base2[0]) <= i <= (int(base2[0]) + width):
                 cont_range_postline[i] = j
 
         # pre, post = remove_cosmic_ray(cont_range_preline, cont_range_postline)
@@ -138,7 +139,7 @@ class EqWidth():
 
         return continuum, c1, c2
 
-    def measure_ew(self, feature_width, peak, continuum, c1, c2):
+    def measure_ew(self, feature_width, peak, continuum, c1, c2, prewave, postwave, plot_region = True):
         '''measure area under feature'''
 
         # take all data points in ha region and subtract continuum
@@ -156,23 +157,29 @@ class EqWidth():
         ha_err = np.sqrt((linerr / (continuum)) ** 2 + (area / (continuum) ** 2 * np.std([c1, c2])) ** 2)
         ew = [area / continuum, ha_err]
 
-        # x = []
-        # y = []
-        # for i in prewave:
-        #     x.append(i[0])
-        #     y.append(i[1])
-        # x.append(featurepeak[0])
-        # y.append(featurepeak[1])
-        # for i in postwave:
-        #     x.append(i[0])
-        #     y.append(i[1])
-        # plt.plot(x, y, linestyle = '-', marker = ',', color = 'b')
-        # plt.show()
+
+        if plot_region:
+            x = []
+            y = []
+            for i in prewave:
+                x.append(i[0])
+                y.append(i[1])
+            x.append(peak[0])
+            y.append(peak[1])
+            for i in postwave:
+                x.append(i[0])
+                y.append(i[1])
+            n = np.ones(len(x))
+            print continuum
+            print y - (continuum*n)
+            plt.plot(x, y, linestyle = '-', marker = ',', color = 'b')
+            plt.plot(x, continuum*n, linestyle = '-', color = 'r')
+            plt.show()
 
         return ew
 
     def plot_ew(self, line, peak, base1, base2, continuum, c1, c2):
-        ''' plot to see what's being calculated   '''
+        """ plot to see what's being calculated   """
 
         # plot halpha
         plt.axvline(x=line, color='pink')
@@ -195,16 +202,6 @@ class EqWidth():
         plt.xlim(6530, 6600)
         plt.show()
 
-    def final_plot(self, ew):
-        """
-
-        :return: plot output values of ew per star
-        """
-
-        kicnumber, ha, ha_err = np.loadtxt('finalEW.txt', dtype=(int, float, float), skiprows=1, unpack=True)
-
-        # print kicnumber, ha, ha_err
-
 
 ########################################################################################################################
 ########################################################################################################################
@@ -218,6 +215,7 @@ def base_point(prewave, postwave, featurepeak):
     postslope = slope(featurepeak, postwave[-1])
 
     dip = True
+    str_feature = 'not defined'
 
     if preslope < 0 < postslope:
         str_feature = 'absorption'
@@ -226,7 +224,8 @@ def base_point(prewave, postwave, featurepeak):
         str_feature = 'emission!'
         dip = False
     else:
-        print 'borked'
+        pass
+       # print 'borked'
 
     # now check where the turning point is : where its no longer + or -
     greenline1 = prewave[0]
@@ -266,11 +265,11 @@ def remove_cosmic_ray(region1, region2):
     # remove cosmic rays from the continuum regions by setting limits
     for n, (w, flux) in enumerate(dict_lines_region1.iteritems()):
         if dict_lines_region1.values()[n - 1] < flux * upperbound and dict_lines_region1.values()[
-                    n - 1] > flux * lowerbound:
+                n - 1] > flux * lowerbound:
             preline_nocr[w] = flux
     for n, (w, flux) in enumerate(dict_lines_region2.iteritems()):
         if dict_lines_region2.values()[n - 1] < flux * upperbound and dict_lines_region2.values()[
-                    n - 1] > flux * lowerbound:
+                n - 1] > flux * lowerbound:
             postline_nocr[w] = flux
 
     return preline_nocr, postline_nocr
