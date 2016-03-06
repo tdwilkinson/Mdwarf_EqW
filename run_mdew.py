@@ -26,12 +26,7 @@ o2 = 6830
 n0 = 5895
 
 linelist = [halpha, tio1, tio2, tio3, tio4, tio5, cah2, caoh, o2, n0]
-
-# set up output file and header
 ew_dict = {}
-newfile = open('finalEW.txt', 'w')
-# newfile.write('kic_number' + '\t' + 'ha_ew' + '\t' + 'ha_ew_err' + '\t' + 'tio5' + '\t' + 'tio5_err''\n')
-
 
 def get_wavelength_calibrated_fits_files(input_directory):
     """
@@ -101,8 +96,30 @@ def ew_per_directory(parent_directory, plot_per_image=True):
 ew_per_directory(filepath, plot_per_image=False)
 
 # write output to file:
+
+# set up output file and header
+
+newfile = open('finalEW.txt', 'w')
+newfile.write('kic_number' + '\t' + 'ha' + '\t' + 'ha_err' + '\t' + 'tio1'+ '\t' + 'tio1_err'+ '\t' + \
+              'tio2' + '\t' + 'tio2_err' + '\t' + 'tio3' + '\t' + 'tio3_err' + '\t' + ' tio4'  + '\t' + \
+              'tio4_err' + '\t' + 'tio5' + '\t' + 'tio5_err' + '\t' + 'cah2' + '\t' + 'cah2_err' + '\t' +\
+             'caoh' + '\t' + 'caoh_err' + '\t' + 'o2' + '\t' + 'o2_err' + '\t' + 'n0' + '\t' + 'no_err' +'\n')
+
+# triple for loop! find a better way?
+
 for k, v in sorted(ew_dict.items()):
-    print k, v
-    newfile.write(str(k) + '\t' +  str(v) + '\n')
+    newfile.write(str(k) + '\t' )
+    for l in linelist:
+        for lines in v:
+            if lines.keys()[0] == l:
+                 print lines.keys(), l
+                 print 'wooo'
+                 newfile.write(str(lines.values()[0]) + '\t')
+            else:
+                print lines.keys()[0], l
+                newfile.write(str(np.nan) + '\t')
+                print 'nah'
+    newfile.write('\n')
+    #newfile.write(str(k) + '\t' +  str(v) + '\n')
 
 newfile.close()
