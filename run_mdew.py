@@ -10,6 +10,7 @@ output: finalEW.txt
 import Mdwarf_EqW as ME
 import os
 import numpy as np
+import pandas as pd
 
 # global variables = which lines to measure
 filepath = '/home/tessa/astronomy/mdwarf/highres_data'
@@ -99,27 +100,57 @@ ew_per_directory(filepath, plot_per_image=False)
 
 # set up output file and header
 
-newfile = open('finalEW.txt', 'w')
-newfile.write('kic_number' + '\t' + 'ha' + '\t' + 'ha_err' + '\t' + 'tio1'+ '\t' + 'tio1_err'+ '\t' + \
-              'tio2' + '\t' + 'tio2_err' + '\t' + 'tio3' + '\t' + 'tio3_err' + '\t' + ' tio4'  + '\t' + \
-              'tio4_err' + '\t' + 'tio5' + '\t' + 'tio5_err' + '\t' + 'cah2' + '\t' + 'cah2_err' + '\t' +\
-             'caoh' + '\t' + 'caoh_err' + '\t' + 'o2' + '\t' + 'o2_err' + '\t' + 'n0' + '\t' + 'no_err' +'\n')
+# newfile = open('finalEW.txt', 'w')
+# newfile.write('kic_number' + '\t' + 'ha' + '\t' + 'tio1' +  '\t' + \
+#               'tio2' + '\t' + 'tio3' + '\t' + ' tio4'  + '\t' + \
+#               'tio5' + '\t'  + 'cah2' + '\t' +\
+#              'caoh' + '\t'  + 'o2' + '\t'  + 'n0' +'\n')
+#
+# # triple for loop! find a better way?
+#
+# for k, v in sorted(ew_dict.items()):
+#     newfile.write(str(k) + '\t' )
+#     for lines in v:
+#         print lines.values()
+#         for l in linelist:
+#             if lines.keys()[0] == l:
+#                  newfile.write(str(lines.values()[0]) + '\t')
+#             else:
+#                 newfile.write(str(np.nan) + '\t')
+#     newfile.write('\n')
+#     #newfile.write(str(k) + '\t' +  str(v) + '\n')
+#
+# newfile.close()
 
-# triple for loop! find a better way?
+# TODO: fill in errors
+
+df = pd.DataFrame(index = sorted(ew_dict.keys()), columns = ['ha', 'tio1', 'tio2', 'tio3', 'tio4', 'tio5', 'cah2', 'caoh', 'o2', 'n0'])
 
 for k, v in sorted(ew_dict.items()):
-    newfile.write(str(k) + '\t' )
-    for l in linelist:
-        for lines in v:
-            if lines.keys()[0] == l:
-                 print lines.keys(), l
-                 print 'wooo'
-                 newfile.write(str(lines.values()[0]) + '\t')
-            else:
-                print lines.keys()[0], l
-                newfile.write(str(np.nan) + '\t')
-                print 'nah'
-    newfile.write('\n')
-    #newfile.write(str(k) + '\t' +  str(v) + '\n')
+    for lines in v:
+        for value, measurements in lines.items():
+                if value == halpha:
+                    df.loc[k, 'ha'] = measurements[0]
+                elif value == tio1:
+                    df.loc[k, 'tio1'] = measurements[0]
+                elif value == tio2:
+                    df.loc[k, 'tio2'] = measurements[0]
+                elif value == tio3:
+                    df.loc[k, 'tio3'] = measurements[0]
+                elif value == tio4:
+                    df.loc[k, 'tio4'] = measurements[0]
+                elif value == tio5:
+                    df.loc[k, 'tio5'] = measurement[0]
+                elif value == cah2:
+                    df.loc[k, 'cah2'] = measurements[0]
+                elif value == caoh:
+                    df.loc[k, 'caoh'] = measurements[0]
+                elif value == o2:
+                    df.loc[k, 'o2'] = measurements[0]
+                elif value == n0:
+                    df.loc[k, 'n0'] = measurements[0]
+                else:
+                    print 'nada'
 
-newfile.close()
+df.to_csv('finalEW.txt', sep = '\t')
+
