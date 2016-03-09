@@ -155,7 +155,7 @@ class EqWidth:
         x = np.ones(len(haflux.values()))
         linerr = np.sqrt(trapz(haflux.values(), (fluxerr * x) ** 2))
         ha_err = np.sqrt((linerr / (continuum)) ** 2 + (area / (continuum) ** 2 * np.std([c1, c2])) ** 2)
-        ew = [area / continuum, ha_err]
+        ew = area / continuum, ha_err
 
 
         if plot_region:
@@ -225,7 +225,7 @@ def base_point(prewave, postwave, featurepeak):
         dip = False
     else:
         pass
-       # print 'borked'
+        print 'borked'
 
     # now check where the turning point is : where its no longer + or -
     greenline1 = prewave[0]
