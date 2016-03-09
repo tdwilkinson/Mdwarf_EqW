@@ -97,31 +97,6 @@ def ew_per_directory(parent_directory, plot_per_image=True):
 ew_per_directory(filepath, plot_per_image=False)
 
 # write output to file:
-
-# set up output file and header
-
-# newfile = open('finalEW.txt', 'w')
-# newfile.write('kic_number' + '\t' + 'ha' + '\t' + 'tio1' +  '\t' + \
-#               'tio2' + '\t' + 'tio3' + '\t' + ' tio4'  + '\t' + \
-#               'tio5' + '\t'  + 'cah2' + '\t' +\
-#              'caoh' + '\t'  + 'o2' + '\t'  + 'n0' +'\n')
-#
-# # triple for loop! find a better way?
-#
-# for k, v in sorted(ew_dict.items()):
-#     newfile.write(str(k) + '\t' )
-#     for lines in v:
-#         print lines.values()
-#         for l in linelist:
-#             if lines.keys()[0] == l:
-#                  newfile.write(str(lines.values()[0]) + '\t')
-#             else:
-#                 newfile.write(str(np.nan) + '\t')
-#     newfile.write('\n')
-#     #newfile.write(str(k) + '\t' +  str(v) + '\n')
-#
-# newfile.close()
-
 # TODO: fill in errors
 
 df = pd.DataFrame(index = sorted(ew_dict.keys()), columns = ['ha', 'tio1', 'tio2', 'tio3', 'tio4', 'tio5', 'cah2', 'caoh', 'o2', 'n0'])
@@ -130,25 +105,25 @@ for k, v in sorted(ew_dict.items()):
     for lines in v:
         for value, measurements in lines.items():
                 if value == halpha:
-                    df.loc[k, 'ha'] = measurements[0]
+                    df.loc[k, 'ha'] = measurements
                 elif value == tio1:
-                    df.loc[k, 'tio1'] = measurements[0]
+                    df.loc[k, 'tio1'] = measurements
                 elif value == tio2:
-                    df.loc[k, 'tio2'] = measurements[0]
+                    df.loc[k, 'tio2'] = measurements
                 elif value == tio3:
-                    df.loc[k, 'tio3'] = measurements[0]
+                    df.loc[k, 'tio3'] = measurements
                 elif value == tio4:
-                    df.loc[k, 'tio4'] = measurements[0]
+                    df.loc[k, 'tio4'] = measurements
                 elif value == tio5:
-                    df.loc[k, 'tio5'] = measurement[0]
+                    df.loc[k, 'tio5'] = measurements
                 elif value == cah2:
-                    df.loc[k, 'cah2'] = measurements[0]
+                    df.loc[k, 'cah2'] = measurements
                 elif value == caoh:
-                    df.loc[k, 'caoh'] = measurements[0]
+                    df.loc[k, 'caoh'] = measurements
                 elif value == o2:
-                    df.loc[k, 'o2'] = measurements[0]
+                    df.loc[k, 'o2'] = measurements
                 elif value == n0:
-                    df.loc[k, 'n0'] = measurements[0]
+                    df.loc[k, 'n0'] = measurements
                 else:
                     print 'nada'
 
