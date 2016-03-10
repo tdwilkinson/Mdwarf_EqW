@@ -45,7 +45,7 @@ def get_wavelength_calibrated_fits_files(input_directory):
     return fits_path
 
 
-def save_ew(fitsimage, line, ew):
+def save_ew(fitsimage, line, ew, err):
     """output: text file with tab separated values of each kic number followed by EqW measurements"""
 
     fi = fitsimage.find('kic')
@@ -54,13 +54,13 @@ def save_ew(fitsimage, line, ew):
     kic = int(tmp[:dot])  # gets just the kic number
 
     measurement = {}
-    measurement[line] = ew
-
+    measurement[line] = [ew, err]
 
     if kic not in ew_dict.keys():
         ew_dict[kic] = measurement
-    stack = np.hstack((ew_dict[kic], measurement))
-    ew_dict[kic] = stack
+    else:
+        stack = np.hstack((ew_dict[kic], measurement))
+        ew_dict[kic] = stack
 
 
 def ew_per_directory(parent_directory, plot_per_image=True):
@@ -80,10 +80,10 @@ def ew_per_directory(parent_directory, plot_per_image=True):
             else:
                 base1, base2, description, prewave, postwave = ME.EqWidth(image).map_feature(feature_width, peak, line)
                 continuum, c1, c2 = ME.EqWidth(image).find_continuum(base1, base2, 5)
-                ew = ME.EqWidth(image).measure_ew(feature_width, peak, continuum, c1, c2, prewave, postwave, plot_region = False)
+                ew, err = ME.EqWidth(image).measure_ew(feature_width, peak, continuum, c1, c2, prewave, postwave, base1, base2, plot_region = False)
 
                 #print description
-                save_ew(image, line, ew)
+                save_ew(image, line, ew, err)
 
                 if plot_per_image:
                     ME.EqWidth(image).plot_ew(line, peak, base1, base2, continuum, c1, c2)
