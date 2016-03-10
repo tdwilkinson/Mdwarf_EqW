@@ -139,9 +139,10 @@ class EqWidth:
 
         return continuum, c1, c2
 
-    def measure_ew(self, feature_width, peak, continuum, c1, c2, prewave, postwave, plot_region = True):
+    def measure_ew(self, feature_width, peak, continuum, c1, c2, prewave, postwave, base1, base2, plot_region = True):
         '''measure area under feature'''
 
+        #attempt 1:
         # take all data points in ha region and subtract continuum
         haflux = {}
         for wavelengths, fluxx in feature_width.iteritems():
@@ -154,29 +155,44 @@ class EqWidth:
 
         x = np.ones(len(haflux.values()))
         linerr = np.sqrt(trapz(haflux.values(), (fluxerr * x) ** 2))
-        ha_err = np.sqrt((linerr / (continuum)) ** 2 + (area / (continuum) ** 2 * np.std([c1, c2])) ** 2)
-        ew = area / continuum, ha_err
+        err = np.sqrt((linerr / (continuum)) ** 2 + (area / (continuum) ** 2 * np.std([c1, c2])) ** 2)
+        ew = area / continuum
 
+        # attempt 2
+        x = []
+        y = []
+        for i in prewave:
+            if i[0] < base1[0]:
+                x.append(i[0])
+                y.append(i[1])
+        x.append(peak[0])
+        y.append(peak[1])
+        for i in postwave:
+            if i[0] > base2[0]:
+                x.append(i[0])
+                y.append(i[1])
+        n = np.ones(len(x))
+        narea = trapz(y-continuum*n, x)
+        newew = narea / continuum
+
+
+        # attempt 3
+        # def PolyArea(x,y):
+        #     return 0.5*np.abs(np.dot(x,np.roll(y,1))-np.dot(y,np.roll(x,1)))
+        # print PolyArea(continuum, zip(x,y))
+
+
+        #print y-continuum*n, haflux.values()
 
         if plot_region:
-            x = []
-            y = []
-            for i in prewave:
-                x.append(i[0])
-                y.append(i[1])
-            x.append(peak[0])
-            y.append(peak[1])
-            for i in postwave:
-                x.append(i[0])
-                y.append(i[1])
-            n = np.ones(len(x))
-            print continuum
-            print y - (continuum*n)
+
+            #print continuum
+            #print y - (continuum*n)
             plt.plot(x, y, linestyle = '-', marker = ',', color = 'b')
             plt.plot(x, continuum*n, linestyle = '-', color = 'r')
             plt.show()
 
-        return ew
+        return newew, err
 
     def plot_ew(self, line, peak, base1, base2, continuum, c1, c2):
         """ plot to see what's being calculated   """
