@@ -119,7 +119,9 @@ class mdew_vs_spt(object):
                 plt.ylabel(linelist[i])
                 plt.xlabel('Spectral Types')
                 plt.title('Magnetic Activity per Spectral Type')
+                plt.savefig((str(linelist[i]) + '.png'))
                 plt.show()
+
 
 #############################################################################################
 #############################################################################################
