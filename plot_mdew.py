@@ -42,7 +42,7 @@ class mdew_vs_spt(object):
         self.linelist = [ha, tio1, tio2, tio3, tio4, tio5, cah2, caoh, o2, n0]
 
 
-        spt_df = pd.DataFrame.from_csv(path_to_spt,sep='\t')
+        spt_df = pd.DataFrame.from_csv(path_to_spt,sep= '\t')
 
         spt = spt_df['spectype']
         # TODO: add in error column too!
@@ -88,15 +88,33 @@ class mdew_vs_spt(object):
             linelist = ['ha', 'tio1', 'tio2', 'tio3', 'tio4', 'tio5', 'cah2', 'caoh', 'o2', 'n0']
 
             def get_line(something, index):
-                return self.linelist[index].get(something)
+                return self.linelist[index].get(something) # .get gets a string
 
             spt = self.spt_index()
             for i in xrange(len(self.linelist)):
-                for kic, index in spt.items():
-                    if get_line(kic, i) != np.nan:
-                        plt.scatter(index, get_line(kic, i), marker= '*', alpha = 0.5, color = 'b')
 
-                #plt.scatter(index, v, marker='*', alpha = 0.5, color = 'b')
+
+                for kic, index in spt.items():
+                    for k,v in self.linelist[i].iteritems():
+                        if k == kic:
+                            try:
+                                msmt = v[1:v.find(',')]
+                            except AttributeError:
+                                msmt = v
+                            if msmt > 0 :
+                                plt.scatter(index, msmt, marker = '*', alpha = 0.7)
+                            #plt.errorbar(index, msmt, yerr= err, marker = '*', alpha = 0.5)
+                        # if get_line(kic, i) != np.nan and get_line(kic,i) != None:
+                        # try:
+                        #     print get_line(kic,i), type(get_line(kic,i))
+                        #     msmt = get_line(kic,i).split()
+                        #     print msmt[0]
+                        #     err = get_line(kic,i)
+                        #     plt.errorbar(index, msmt, yerr= err, marker = '*', alpha = 0.5)
+                        # except:
+                        #     print 'nope'
+                        #     plt.scatter(index, get_line(kic, i), marker= '*', alpha = 0.5, color = 'b')
+
                 plt.xticks(np.arange(len(self.spectypes)), self.spectypes)
                 plt.ylabel(linelist[i])
                 plt.xlabel('Spectral Types')
