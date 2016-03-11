@@ -30,6 +30,7 @@ class mdew_vs_spt(object):
         #tio5_err = ew_df['tio5_err']
         cah2 = 	ew_df['cah2']
         #cah2_err = ew_df['cah2_err']
+        cah3 = ew_df['cah3']
         caoh = ew_df['caoh']
         #caoh_err = ew_df['caoh_err']
         o2 = ew_df['o2']
@@ -39,7 +40,7 @@ class mdew_vs_spt(object):
 
         # self.ewfile_contents = [ha, ha_err, tio1, tio1_err, tio2, tio2_err, tio3, tio3_err, tio4, tio4_err, tio5, tio5_err, cah2,\
         #         cah2_err, caoh, caoh_err, o2, o2_err, n0, no_err]
-        self.linelist = [ha, tio1, tio2, tio3, tio4, tio5, cah2, caoh, o2, n0]
+        self.linelist = [ha, tio1, tio2, tio3, tio4, tio5, cah2, cah3, caoh, o2, n0]
 
 
         spt_df = pd.DataFrame.from_csv(path_to_spt,sep= '\t')
@@ -83,16 +84,12 @@ class mdew_vs_spt(object):
                     yvalue[kic] = [line, line_err]
 
 
-    def plot(self):
+    def plot_vs_spt(self):
 
-            linelist = ['ha', 'tio1', 'tio2', 'tio3', 'tio4', 'tio5', 'cah2', 'caoh', 'o2', 'n0']
-
-            def get_line(something, index):
-                return self.linelist[index].get(something) # .get gets a string
+            linelist = ['ha', 'tio1', 'tio2', 'tio3', 'tio4', 'tio5', 'cah2', 'cah3', 'caoh', 'o2', 'n0']
 
             spt = self.spt_index()
             for i in xrange(len(self.linelist)):
-
 
                 for kic, index in spt.items():
                     for k,v in self.linelist[i].iteritems():
@@ -122,8 +119,34 @@ class mdew_vs_spt(object):
                 plt.savefig((str(linelist[i]) + '.png'))
                 plt.show()
 
+    def plot(self):
+        """
+        """
 
+        linelist = ['ha', 'tio1', 'tio2', 'tio3', 'tio4', 'tio5', 'cah2', 'cah3', 'caoh', 'o2', 'n0']
+
+        y = {}
+        for k,v in self.linelist[7].iteritems(): # cah3
+            for key, value in self.linelist[6].iteritems(): # cah2
+                if len(str(value)) > 3 < len(str(v)) and key == k:
+                    y[k] =  float(value[1:-1]) + float(v[1:-1])
+
+        for k, tio5 in self.linelist[5].iteritems(): # tio5
+            for kic, yvalue in y.items():
+                if k == kic:
+                    plt.scatter(float(tio5[1:-1]), yvalue, marker = '*')
+
+        plt.ylabel('CaH2 + CaH3')
+        plt.xlabel('Tio5')
+        plt.title('Spectral Indices Diagram')
+        plt.savefig('Cah2_3_vs_Tio5' + '.png')
+        plt.show()
 #############################################################################################
 #############################################################################################
 
+#mdew_vs_spt('finalEW.txt', '/home/tessa/PycharmProjects/mdwarf/finalSpT.txt').plot_vs_spt()
 mdew_vs_spt('finalEW.txt', '/home/tessa/PycharmProjects/mdwarf/finalSpT.txt').plot()
+
+
+def get_line(something, index):
+    return self.linelist[index].get(something) # .get gets a string
