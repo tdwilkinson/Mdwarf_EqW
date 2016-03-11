@@ -53,6 +53,7 @@ class EqWidth:
         if len(initial_region) == 0:
             raise Exception('poor flux calibration!')
 
+
         line_min = []
         line_max = []
 
@@ -162,13 +163,13 @@ class EqWidth:
         x = []
         y = []
         for i in prewave:
-            if i[0] < base1[0]:
+            #if i[0] < base1[0]:
                 x.append(i[0])
                 y.append(i[1])
         x.append(peak[0])
         y.append(peak[1])
         for i in postwave:
-            if i[0] > base2[0]:
+            #if i[0] > base2[0]:
                 x.append(i[0])
                 y.append(i[1])
         n = np.ones(len(x))
@@ -219,6 +220,18 @@ class EqWidth:
         plt.show()
 
 
+    def avg_flux_per_region(self, start, end):
+        """
+        """
+        # find feature pixels near feature
+        region = {}
+        for i, j in zip(self.x_wavelengths, self.y_data):
+                if start <= i <= end:
+                    region[i] = j
+
+        if len(region.values()) > 0:
+            average = sum(region.values()) / len(region.values())
+            return average
 ########################################################################################################################
 ########################################################################################################################
 
@@ -269,6 +282,8 @@ def base_point(prewave, postwave, featurepeak):
     return str_feature, greenline1, greenline2
 
 
+
+
 def remove_cosmic_ray(region1, region2):
     """ bounds here for testing. outputs two dictionaries"""
 
@@ -289,6 +304,7 @@ def remove_cosmic_ray(region1, region2):
             postline_nocr[w] = flux
 
     return preline_nocr, postline_nocr
+
 
 
 def slope(list1, list2):
