@@ -53,7 +53,6 @@ class EqWidth:
         if len(initial_region) == 0:
             raise Exception('poor flux calibration!')
 
-
         line_min = []
         line_max = []
 
@@ -254,7 +253,7 @@ def base_point(prewave, postwave, featurepeak):
         dip = False
     else:
         pass
-        print 'borked'
+        #print 'borked'
 
     # now check where the turning point is : where its no longer + or -
     greenline1 = prewave[0]
