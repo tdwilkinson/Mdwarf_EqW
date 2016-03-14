@@ -29,9 +29,12 @@ n0 = [5895]
 na1 = [5865, 5880]
 na2 = [5910, 5925]
 
+# hardcoded output names for now:
+linelist = [halpha, tio1, tio2, tio3, tio4, tio5, cah2, cah3, caoh, o2, n0]
+outcolumns = ['ha', 'tio1', 'tio2', 'tio3', 'tio4', 'tio5', 'cah2', 'cah3', 'caoh', 'o2', 'n0']
 # chi = 10**([0, -3.93438, -4.01516, -4.13192, -4.19592, -4.56243,-4.75570, -5.28066, -5.21965, -5.41719])
 
-linelist = [halpha, tio1, tio2, tio3, tio4, tio5, cah2, cah3, caoh, o2, n0]
+
 ew_dict = {}
 
 def get_wavelength_calibrated_fits_files(input_directory):
@@ -97,46 +100,15 @@ def ew_per_directory(parent_directory, plot_per_image=True):
                 if plot_per_image:
                     ME.EqWidth(image).plot_ew(line, peak, base1, base2, continuum, c1, c2)
 
-
-# TODO: make sure multiple files for one star or stored or appended in list (see todo above)
-# TODO: separate ones with magnetic activity
-# TODO: add in looking at other bands
-# TODO: plot output values (maybe in new file)
-# change this line to search a directory that contains directories or files.
 ew_per_directory(filepath, plot_per_image=False)
 
 # write output to file:
-# TODO: fill in errors
-
-df = pd.DataFrame(index = sorted(ew_dict.keys()), columns = ['ha', 'tio1', 'tio2', 'tio3', 'tio4', 'tio5', 'cah2', 'cah3', 'caoh', 'o2', 'n0'])
-
+df = pd.DataFrame(index = sorted(ew_dict.keys()), columns = outcolumns)
 for k, v in sorted(ew_dict.items()):
     for lines in v:
         for value, measurements in lines.items():
-                if value == halpha[0]:
-                    df.loc[k, 'ha'] = measurements
-                elif value == tio1[0]:
-                    df.loc[k, 'tio1'] = measurements
-                elif value == tio2[0]:
-                    df.loc[k, 'tio2'] = measurements
-                elif value == tio3[0]:
-                    df.loc[k, 'tio3'] = measurements
-                elif value == tio4[0]:
-                    df.loc[k, 'tio4'] = measurements
-                elif value == tio5[0]:
-                    df.loc[k, 'tio5'] = measurements
-                elif value == cah2[0]:
-                    df.loc[k, 'cah2'] = measurements
-                elif value == cah3[0]:
-                    df.loc[k, 'cah3'] = measurements
-                elif value == caoh[0]:
-                    df.loc[k, 'caoh'] = measurements
-                elif value == o2[0]:
-                    df.loc[k, 'o2'] = measurements
-                elif value == n0[0]:
-                    df.loc[k, 'n0'] = measurements
-                else:
-                    print 'nada'
-
-df.to_csv('finalEW.txt', sep = '\t')
+            for n in xrange(len(outcolumns)):
+                if value == linelist[n][0]:
+                    df.loc[k, outcolumns[n]] = measurements
+df.to_csv('Mdwarf_out.txt', sep = '\t')
 
