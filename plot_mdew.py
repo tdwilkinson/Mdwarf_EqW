@@ -100,17 +100,6 @@ class mdew_vs_spt(object):
                                 msmt = v
                             if msmt > 0 :
                                 plt.scatter(index, msmt, marker = '*', alpha = 0.7)
-                            #plt.errorbar(index, msmt, yerr= err, marker = '*', alpha = 0.5)
-                        # if get_line(kic, i) != np.nan and get_line(kic,i) != None:
-                        # try:
-                        #     print get_line(kic,i), type(get_line(kic,i))
-                        #     msmt = get_line(kic,i).split()
-                        #     print msmt[0]
-                        #     err = get_line(kic,i)
-                        #     plt.errorbar(index, msmt, yerr= err, marker = '*', alpha = 0.5)
-                        # except:
-                        #     print 'nope'
-                        #     plt.scatter(index, get_line(kic, i), marker= '*', alpha = 0.5, color = 'b')
 
                 plt.xticks(np.arange(len(self.spectypes)), self.spectypes)
                 plt.ylabel(linelist[i])
@@ -119,7 +108,7 @@ class mdew_vs_spt(object):
                 plt.savefig((str(linelist[i]) + '.png'))
                 plt.show()
 
-    def plot(self):
+    def plot_ca_vs_ew(self):
         """
         """
 
@@ -141,11 +130,42 @@ class mdew_vs_spt(object):
         plt.title('Spectral Indices Diagram')
         plt.savefig('Cah2_3_vs_Tio5' + '.png')
         plt.show()
+
+    def chi(self, plot = True):
+        """
+        """
+        chi = [10 ** 0, 10 ** (-3.93438), 10 ** (-4.01516), 10 ** (-4.13192), 10 ** (-4.19592), 10 ** (-4.56243), 10 ** (-4.75570), 10 ** (-5.28066), 10 ** (-5.21965), 10 ** (-5.41719)]
+
+        dict = {}
+
+        spt = self.spt_index()
+        ew_list = self.linelist[0]
+        for k, value in self.linelist[0].iteritems():
+            for kic, index in spt.items():
+                if k == kic:
+                    ew = value.split()[0][1:-1]
+                    logll = np.log10(float(ew) * float(chi[index]))
+                    plt.plot(index, logll, marker='*', color='green')
+                    dict[kic] = logll
+        if plot:
+            plt.xticks(np.arange(len(self.spectypes)), self.spectypes)  # and i[0] are the sorted keys
+            plt.margins(0.2)
+            plt.ylabel('L Halpha / L bol')
+            plt.xlabel('Hammer Spectral Types')
+            plt.title('Chi vs SpT')
+            plt.show()
+
+        print dict
+        df = pd.DataFrame(dict.values(), index = dict.keys(),  columns = ['llog'])
+        df.to_csv('mdwarf_chi.csv', sep = ',')
+
+
 #############################################################################################
 #############################################################################################
 
 #mdew_vs_spt('finalEW.txt', '/home/tessa/PycharmProjects/mdwarf/finalSpT.txt').plot_vs_spt()
-mdew_vs_spt('finalEW.txt', '/home/tessa/PycharmProjects/mdwarf/finalSpT.txt').plot()
+#mdew_vs_spt('finalEW.txt', '/home/tessa/PycharmProjects/mdwarf/finalSpT.txt').plot_ca_vs_ew()
+mdew_vs_spt('finalEW.txt', '/home/tessa/PycharmProjects/mdwarf/finalSpT.txt').chi()
 
 
 def get_line(something, index):
