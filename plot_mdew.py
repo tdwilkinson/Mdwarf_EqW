@@ -40,24 +40,27 @@ def combine_values(dictionary1, dictionary2, *dictionary3):
     return out
 
 
-def show_plot(title, x_label, y_label, save=True):
+def show_plot(title= '', x_label= '', y_label= '', saveaspng = '',  save=True):
     """
     """
+    assert type(title) == str
+    assert type(x_label) == str
+    assert type(y_label) == str
 
     plt.ylabel(y_label)
     plt.xlabel(x_label)
     plt.title(title)
     plt.show()
+
     if save:
-        plt.savefig(title + '.png')
-
-    assert type(title) == str
-    assert type(x_label) == str
-    assert type(y_label) == str
+        plt.savefig(saveaspng + '.png')
 
 
-class plot(object):
-    def __init__(self):
+
+
+class plot():
+
+    def __init__(self, indices_out_file, lamost = False, lowres = False):
         """
         input: path_to_ew: a text file, the first column is the kic numbers, the second column is a dictionary with
             each line measured as the keys and the value is the measurement and error of the line
@@ -68,8 +71,7 @@ class plot(object):
         self.color = ['pink', 'red', 'orange', 'yellow', 'green', 'blue', 'maroon', 'black']
 
         # load in data
-        # ew_df = pd.DataFrame.from_csv('finalEW.txt', sep='\t')
-        ew_df = pd.DataFrame.from_csv('Mdwarf_lowres_outfile.txt', sep='\t')
+        ew_df = pd.DataFrame.from_csv(indices_out_file, sep='\t')
         ha = ew_df['ha']
         tio1 = ew_df['tio1']
         tio2 = ew_df['tio2']
@@ -93,23 +95,36 @@ class plot(object):
             cah[starid] = float(cah2) + float(cah3)
         self.cah = cah
 
-        spt_df = pd.DataFrame.from_csv('/home/tessa/PycharmProjects/mdwarf/finalSpT.txt', sep='\t')
-        spt = spt_df['spectype']
-        sptdata = {}
-        for kic, sptype in spt.iteritems():
-            if str(sptype) != 'bad':
-                sptdata[int(kic)] = [sptype]
-        self.sptype = sptdata
+        if lamost:
+            xvalue = {}
+            self.sptype = ew_df['SpT']
+            for id, type in self.sptype.iteritems():
+                for spectype in self.spectypes:
+                    if str(type) == str(spectype):
+                        xvalue[id] = self.spectypes.index(spectype)
+            self.spt_index = xvalue
+        elif lowres:
+            spt_df = pd.DataFrame.from_csv('/home/tessa/PycharmProjects/mdwarf/finalSpT.txt', sep='\t')
+            spt = spt_df['spectype']
+            sptdata = {}
+            for kic, sptype in spt.iteritems():
+                if str(sptype) != 'bad':
+                    sptdata[int(kic)] = [sptype]
+            self.sptype = sptdata
 
-        xvalue = {}
-        for kic, value in self.sptype.items():
-            for st in self.spectypes:
-                if st == value[0]:
-                    xpos = self.spectypes.index(st)
-                    xvalue[int(kic)] = xpos
-        self.spt_index = xvalue
+            xvalue = {}
+            for kic, value in self.sptype.iteritems():
+                for st in self.spectypes:
+                    if st == value[0]:
+                        xpos = self.spectypes.index(st)
+                        xvalue[int(kic)] = xpos
+            self.spt_index = xvalue
 
-        zeta_values = pd.read_csv("lowres_zeta.csv", delimiter=',', header=0, index_col=0)
+
+        if lamost:
+            zeta_values = pd.read_csv("lamost_zeta.csv", delimiter=',', header=0, index_col=0)
+        elif lowres:
+            zeta_values = pd.read_csv("lowres_zeta.csv", delimiter=',', header=0, index_col=0)
         self.zeta = zeta_values['zeta']
 
         kic_values = pd.DataFrame.from_csv(
@@ -128,13 +143,19 @@ class plot(object):
                     mag[gkey] = g_k
         self.g_k = mag
 
-        logll = pd.DataFrame.from_csv('lowres_mdwarf_logll.csv')
+        if lamost:
+            logll = pd.DataFrame.from_csv('lamost_mdwarf_logll.csv')
+        elif lowres:
+            logll = pd.DataFrame.from_csv('lowres_mdwarf_logll.csv')
         self.logll = logll['llog']
 
-        feh = pd.DataFrame.from_csv('lowres_fe_h.csv')
+        if lamost:
+            feh = pd.DataFrame.from_csv('lamost_fe_h.csv')
+        elif lowres:
+            feh = pd.DataFrame.from_csv('lowres_fe_h.csv')
         self.feh = feh['Fe/H']
 
-    def define_zeta(self, save=True):
+    def define_zeta(self, outfilename, save=True):
         """
         """
         out = {}
@@ -146,11 +167,13 @@ class plot(object):
             zeta = (1.0 - tio5) / (1.0 - solar_tio5)
             out[key] = zeta
 
+        assert type(outfilename) == str
+        assert len(out) != 0
         if save:
             df = pd.DataFrame(out.values(), index=out.keys(), columns=['zeta'])
-            df.to_csv('lowres_zeta.csv', sep=',')
+            df.to_csv(outfilename + '.csv', sep=',')
 
-    def define_logll(self):
+    def define_logll(self, outfilename):
         """
         """
 
@@ -163,28 +186,32 @@ class plot(object):
             logll = np.log10(float(ha) * float(chi[int(index)]))
             logll_dict[kic] = logll
 
+        assert type(outfilename) == str
+        assert len(logll_dict) != 0
         df = pd.DataFrame(logll_dict.values(), index=logll_dict.keys(), columns=['llog'])
-        df.to_csv('lowres_mdwarf_logll.csv', sep=',')
+        df.to_csv(outfilename+'.csv', sep=',')
 
-    def define_feh(self):
+    def define_feh(self, outfilename):
         """ derived from Mann 2012"""
+
         out_feh = {}
         # calculate fe/h per star
         for key, z in self.zeta.iteritems():
             feh = 1.55 * z - 1.62
             out_feh[key] = feh
 
+        assert type(outfilename) == str
+        assert len(out_feh) != 0
         df = pd.DataFrame(out_feh.values(), index=out_feh.keys(), columns=['Fe/H'])
-        df.to_csv('lowres_fe_h.csv', sep=',')
+        df.to_csv( outfilename + '.csv', sep=',')
 
-    def _vs_(self, xvalue={}, yvalue={}, xlog=False, ylog=False, xmagnitude=False, ymagnitude=False, title='',
-             x_label='', y_label=''):
+    def _vs_(self, xvalue={}, yvalue={}, marker = '*', xlog=False, ylog=False, xmagnitude=False, ymagnitude=False):
         """
         """
 
         xy = combine_values(xvalue, yvalue, self.spt_index)
         for starid, (x, y, index) in xy.iteritems():
-            plt.scatter(x, y, marker='*', color=self.color[int(index)])
+            plt.scatter(x, y, marker=marker, color=self.color[int(index)], alpha = 0.5)
         if ymagnitude:
             plt.gca().invert_yaxis()
         if xmagnitude:
@@ -193,9 +220,8 @@ class plot(object):
             plt.yscale('log')
         if xlog:
             plt.xscale('log')
-        show_plot(title, x_label, y_label, save=True)
 
-    def _vs_spt(self, linelist=True, yvalue={}, log=False, magnitude=False, title='', y_label=''):
+    def _vs_spt(self, linelist=True, yvalue={}, marker = '*', log=False, magnitude=False, highres = False, lowres = False, lamost = False):
 
         if linelist:
             for i in xrange(len(self.linelist)):
@@ -205,25 +231,28 @@ class plot(object):
                     except AttributeError:
                         msmt = line
                     if msmt > 0:
-                        plt.scatter(index, msmt, marker='*', alpha=0.7)
+                        plt.scatter(index, msmt, marker= marker, alpha=0.7)
                 if magnitude:
                     plt.gca().invert_yaxis()
                 plt.xticks(np.arange(len(self.spectypes)), self.spectypes)
                 plt.margins(0.2)
-                show_plot(title, 'Spectral Types', self.linelist_name[i], save=True)
-
+                if lamost:
+                    show_plot('LAMOST ' + self.linelist_name[i] + ' vs SpT', 'Spectral Types', self.linelist_name[i], saveaspng= 'LAMOST_' + str(self.linelist_name[i])+'.png')
+                elif lowres:
+                    show_plot('Lowres ' + self.linelist_name[i] + ' vs SpT', 'Spectral Types', self.linelist_name[i], saveaspng= 'lowres_' + str(self.linelist_name[i])+'.png')
+                elif highres:
+                    show_plot('Highres ' + self.linelist_name[i] + ' vs SpT', 'Spectral Types', self.linelist_name[i], saveaspng= 'highres' + str(self.linelist_name[i])+'.png')
 
         else:
             xy = combine_values(self.spt_index, yvalue)
             for key, (index, y) in xy.iteritems():
-                plt.scatter(index, y, marker='.', color='blue')
+                plt.scatter(index, y, marker= marker, color='blue')
             if log:
                 plt.yscale('log')
             if magnitude:
                 plt.gca().invert_yaxis()
             plt.xticks(np.arange(len(self.spectypes)), self.spectypes)  # and i[0] are the sorted keys
             plt.margins(0.2)
-            show_plot(title=title, x_label='Spectral Type', y_label=y_label, save=True)
 
     def histogram(self, dictionary, log=False, spt=False, title='', x_label=''):
 
@@ -240,38 +269,88 @@ class plot(object):
         if spt:
             plt.xticks(np.arange(len(self.spectypes)), self.spectypes)
             plt.margins(0.2)
-        show_plot(title, x_label, 'count', save=True)
 
 
 #############################################################################################
 #############################################################################################
 
+lowres_filepath = 'Mdwarf_lowres_outfile.txt'
+highres_filepath = 'finalEW.txt'
+standard_filepath = 'other'
+lamost = 'lamost_lowres_outfile.txt'
 
-#
-# m = plot()
-# # m.define_zeta()
-# # m.define_logll()
-# # m.define_feh()
-#
-# # spectral type
-# m._vs_spt(linelist=True, title='lowres Line Indexes vs Spectral Type')
-# m.histogram(m.spt_index, spt=True, title='lowres M dwarfs', x_label='Spectral Types')
-# m._vs_spt(linelist=False, yvalue=m.logll, title='lowreslogll vs spt', y_label='log L Ha / L bol')
-#
+# CHANGE as needed
+prefix_title = 'LAMOST_and_Lowres '
+
+# TODO: make it to where it will plot all of the data on these plots! 
+l = plot(lamost, lamost = True)
+m = plot(lowres_filepath, lowres = True)
+
+# define values (need to comment out in _init_ to define self.values)
+# m.define_zeta('lamost_zeta')
+# m.define_logll('lamost_logll')
+# m.define_feh('lamost_feh')
+
+# spectral type
+# l._vs_spt(linelist=True, lamost = True)
+# m._vs_spt(linelist=True, lowres = True)
+
+# m.histogram(m.spt_index, spt = True)
+# l.histogram(l.spt_index, spt = True)
+# show_plot(title= prefix_title +' M dwarfs per SpT', y_label=  'count', x_label='Spectral Types', saveaspng= str(prefix_title)+'_spt')
+
+# m._vs_spt(linelist=False, yvalue=m.logll)
+# l._vs_spt(linelist=False, yvalue=l.logll)
+# show_plot(title= prefix_title + ' vs spt', y_label='log L Ha / L bol', saveaspng= prefix_title+'_logll_spt')
+
 # # rotational period
-# m._vs_spt(linelist=False, yvalue=m.prot_mc14, log=True, title='lowres Rotational Period vs Spectral Type',
-#           y_label='Prot')
-# m._vs_(m.prot_mc14, m.logll, title='lowres logll vs Prot', xlog=True, x_label='Prot', y_label='log L Ha / L bol')
+# m._vs_spt(linelist=False, yvalue=m.prot_mc14, log=True)
+# show_plot(title= prefix_title + ' Rotational Period vs Spectral Type',y_label='Prot')
+#
+# m._vs_(m.prot_mc14, m.logll, xlog=True)
+# show_plot(title= prefix_title + ' logll vs Prot', x_label='Prot', y_label='log L Ha / L bol')
+#
+# m._vs_(m.prot_mc14, m.feh)
+# show_plot(title = prefix_title + 'FeH vs Prot', xlog = True, x_label= ' Prot', y_label= ' Fe / H ')
+#
 # m.histogram(m.prot_mc14, log=True, title='lowres Prot Histogram', x_label='log Rotational Period')
+
+# m._vs_(m.prot_mc14, m.zeta)
+# show_plot(title= prefix_title + ' Zeta vs Prot', xlog=True, x_label='Prot', y_label='Zeta')
+
+
+
+
+# zeta
+m._vs_(m.tio5, m.zeta, marker = 's')
+l._vs_(l.tio5, l.zeta, marker = 'o')
+show_plot(title=prefix_title + ' Zeta vs Tio5', x_label='Tio5', y_label='Zeta', saveaspng= prefix_title+'_zeta_tio5')
+
+m._vs_(m.feh, m.zeta, xlog = True, marker = 's')
+l._vs_(l.feh, l.zeta, xlog = True, marker = 'o')
+show_plot(title= prefix_title + 'FeH vs Zeta',  x_label='log Fe / H', y_label='Zeta', saveaspng= prefix_title+'_feh_zeta')
+
+
+# m._vs_spt(linelist=False, yvalue=m.zeta, marker = 's')
+# show_plot(title= prefix_title + 'zeta vs SpT', y_label='Zeta', saveaspng= prefix_title+'_zeta_spt')
+
+m._vs_(m.tio5, m.cah, marker = 's')
+l._vs_(l.tio5, l.cah, marker = 'o')
+show_plot(title =  prefix_title + 'CaH vs TiO5', y_label= 'CaH2 + CaH3', x_label= 'TiO5', saveaspng= prefix_title+'_cah_tio5')
+
+
+
+
+# color
+# m._vs_(m.tio5, m.g_k, ymagnitude=True)
+# show_plot(title= prefix_title + ' Tio5 vs g-K', x_label='Tio5', y_label='g - K', saveaspng= prefix_title+'_tio5_gk')
 #
-# # zeta
-# m._vs_(m.tio5, m.zeta, title='lowres Zeta vs Tio5', x_label='Tio5', y_label='Zeta')
-# m._vs_(m.feh, m.zeta, title='FeH vs Zeta', x_label=' Fe / H', y_label='Zeta')
-# m._vs_(m.prot_mc14, m.zeta, title='lowres Zeta vs Prot', xlog=True, x_label='Prot', y_label='Zeta')
-# m._vs_spt(linelist=False, yvalue=m.zeta, title='lowres Zeta vs SpT', y_label='Zeta')
+# m._vs_(m.logll, m.g_k, ymagnitude=True)
+# show_plot(title= prefix_title + 'logll vs g-K', x_label='log L Ha / L bol', y_label='g - K', saveaspng= prefix_title+'_logll_gk')
 #
-# # color
-# m._vs_(m.tio5, m.g_k, title='lowres Tio5 vs g-K', ymagnitude=True, x_label='Tio5', y_label='g - K')
-# m._vs_(m.logll, m.g_k, title='lowres logll vs g-K', ymagnitude=True, x_label='log L Ha / L bol', y_label='g - K')
-# m._vs_(m.cah2, m.g_k, title='lowres Cah2 vs g-K', ymagnitude=True, x_label='CaH2', y_label='g-K')
-# m._vs_spt(linelist=False, yvalue=m.g_k, magnitude=True, title='lowres g-K vs SpT', y_label='g-K')
+# m._vs_(m.cah2, m.g_k, ymagnitude=True)
+# show_plot(title= prefix_title + 'cah2 vs g-K', x_label='CaH2', y_label='g-K',saveaspng= prefix_title+'_cah2_gk' )
+#
+# m._vs_spt(linelist=False, yvalue=m.g_k, magnitude=True)
+# show_plot(title= prefix_title + 'g-K vs SpT', y_label='g-K', saveaspng= prefix_title+'_gk_spt')
+
