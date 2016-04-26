@@ -35,12 +35,44 @@ def combine_values(dictionary1, dictionary2, *dictionary3):
                 else:
                     out[str(key)] = stack
 
-    if len(out) == 0:
-        print 'combine_values found no matched keys!'
+    assert len(out) != 0  # combine_values found no matched keys!
     return out
 
 
-def show_plot(title= '', x_label= '', y_label= '', saveaspng = '',  save=True):
+def append_values(dictionary1, dictionary2, *dictionary3):
+    """
+    """
+    out = {}
+    # dictionary 1
+    for key, value in dictionary1.iteritems():
+        if type(value) == str:
+            value = float(value.split()[0][1:-1])
+        if key not in out.keys() and 'non' != value != np.nan:
+            out[key] = value
+    # dictionary 2
+    for key2, value2 in dictionary2.iteritems():
+        key2 = str(key2)
+        if type(value2) == str:
+            value2 = float(value1.split()[0][1:-1])
+        if key2 not in out.keys() and 'non' != value2 != np.nan:
+            out[key2] = value2
+
+    # optional keyword argument
+    if dictionary3:
+        if type(dictionary3) == tuple:
+            dictionary3 = dict(dictionary3[0])
+        for key3, value3 in dictionary3.iteritems():
+            key3 = str(key3)
+            if type(value3) == str:
+                value3 = float(value3.split()[0][1:-1])
+            if key3 not in out.keys() and 'non' != value3 != np.nan:
+                out[key3] = value3
+
+    assert len(out) != 0  # combine_values found no matched keys!
+    return out
+
+
+def show_plot(title='', x_label='', y_label='', saveaspng='', save=True):
     """
     """
     assert type(title) == str
@@ -56,18 +88,15 @@ def show_plot(title= '', x_label= '', y_label= '', saveaspng = '',  save=True):
         plt.savefig(saveaspng + '.png')
 
 
-
-
 class plot():
-
-    def __init__(self, indices_out_file, lamost = False, lowres = False, calstar = False):
+    def __init__(self, indices_out_file, lamost=False, lowres=False, calstar=False):
         """
         input: path_to_ew: a text file, the first column is the kic numbers, the second column is a dictionary with
             each line measured as the keys and the value is the measurement and error of the line
         """
 
         # predefined lists:
-        self.spectypes = ['K7', 'M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6']
+        self.spectypes = ['K5', 'K7', 'M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6']
         self.color = ['pink', 'red', 'orange', 'yellow', 'green', 'blue', 'maroon', 'black']
 
         # load in data
@@ -204,7 +233,7 @@ class plot():
         assert type(outfilename) == str
         assert len(logll_dict) != 0
         df = pd.DataFrame(logll_dict.values(), index=logll_dict.keys(), columns=['llog'])
-        df.to_csv(outfilename+'.csv', sep=',')
+        df.to_csv(outfilename + '.csv', sep=',')
 
     def define_feh(self, outfilename):
         """ derived from Mann 2012"""
@@ -218,15 +247,15 @@ class plot():
         assert type(outfilename) == str
         assert len(out_feh) != 0
         df = pd.DataFrame(out_feh.values(), index=out_feh.keys(), columns=['Fe/H'])
-        df.to_csv( outfilename + '.csv', sep=',')
+        df.to_csv(outfilename + '.csv', sep=',')
 
-    def _vs_(self, xvalue={}, yvalue={}, marker = '*', xlog=False, ylog=False, xmagnitude=False, ymagnitude=False):
+    def _vs_(self, xvalue={}, yvalue={}, marker='*', xlog=False, ylog=False, xmagnitude=False, ymagnitude=False):
         """
         """
 
         xy = combine_values(xvalue, yvalue, self.spt_index)
         for starid, (x, y, index) in xy.iteritems():
-            plt.scatter(x, y, marker=marker, color=self.color[int(index)], alpha = 0.5)
+            plt.scatter(x, y, marker=marker, color=self.color[int(index)], alpha=0.5)
         if ymagnitude:
             plt.gca().invert_yaxis()
         if xmagnitude:
@@ -236,58 +265,84 @@ class plot():
         if xlog:
             plt.xscale('log')
 
-    def _vs_spt(self, linelist=True, yvalue={}, marker = '*', color = 'blue', log=False, magnitude=False, highres = False, \
-                lowres = False, lamost = False):
+    def linelist_vs_spt(self, yvalue1 = {}, *yvalue2 = {}, *yvalue3 = {}):
+        ''' automatically shows plot
+        '''
 
-        if linelist:
-            for i in xrange(len(self.linelist)):
-                for k, (line, index) in combine_values(self.linelist[i], self.spt_index).iteritems():
-                    try:
-                        msmt = line[1:line.find(',')]
-                    except AttributeError:
-                        msmt = line
-                    if msmt > 0:
-                        plt.scatter(index, msmt, marker= marker, alpha=0.6)
-                if magnitude:
-                    plt.gca().invert_yaxis()
-                plt.xticks(np.arange(len(self.spectypes)), self.spectypes)
-                plt.margins(0.2)
-                if lamost:
-                    show_plot('LAMOST ' + self.linelist_name[i] + ' vs SpT', 'Spectral Types', self.linelist_name[i], \
-                              saveaspng= 'LAMOST_' + str(self.linelist_name[i])+'.png')
-                elif lowres:
-                    show_plot('Lowres ' + self.linelist_name[i] + ' vs SpT', 'Spectral Types', self.linelist_name[i], \
-                              saveaspng= 'lowres_' + str(self.linelist_name[i])+'.png')
-                elif highres:
-                    show_plot('Highres ' + self.linelist_name[i] + ' vs SpT', 'Spectral Types', self.linelist_name[i], \
-                              saveaspng= 'highres' + str(self.linelist_name[i])+'.png')
+    for i in xrange(len(self.linelist)):
+        y = combine_values(self.linelist[i], yvalue.spt_index)
+        for k, (line, index) in y.iteritems():
+            try:
+                msmt = line[1:line.find(',')]
+            except AttributeError:
+                msmt = line
+            if msmt > 0:
+                plt.scatter(index, msmt, marker='o', alpha=0.6)
+        if yvalue2:
+            y = combine_values(self.linelist[i], yvalue.spt_index)
+            for k, (line, index) in y.iteritems():
+                try:
+                    msmt = line[1:line.find(',')]
+                except AttributeError:
+                    msmt = line
+                if msmt > 0:
+                    plt.scatter(index, msmt, marker='o', alpha=0.6)
+        if magnitude:
+            plt.gca().invert_yaxis()
+        plt.ylabel(self.linelist_name[i])
+        plt.xticks(np.arange(len(self.spectypes)), self.spectypes)
+        #plt.margins(0.2)
+        # if lamost:
+        #     show_plot('LAMOST ' + self.linelist_name[i] + ' vs SpT', 'Spectral Types', self.linelist_name[i], \
+        #               saveaspng='LAMOST_' + str(self.linelist_name[i]) + '.png')
+        # elif lowres:
+        #     show_plot('Lowres ' + self.linelist_name[i] + ' vs SpT', 'Spectral Types', self.linelist_name[i], \
+        #               saveaspng='lowres_' + str(self.linelist_name[i]) + '.png')
+        # elif highres:
+        #     show_plot('Highres ' + self.linelist_name[i] + ' vs SpT', 'Spectral Types', self.linelist_name[i], \
+        #               saveaspng='highres' + str(self.linelist_name[i]) + '.png')
+        # elif calstar:
+        #     show_plot('Calibration Stars ' + self.linelist_name[i]+ ' vs SpT', 'Spectral Types', self.linelist_name[i],\
+        #               saveaspng='calstar' + str(self.linelist_name[i]) + '.png')
 
-        else:
-            xy = combine_values(self.spt_index, yvalue)
-            for key, (index, y) in xy.iteritems():
-                plt.scatter(index, y, marker= marker, alpha = 0.6, color = color)
-            if log:
-                plt.yscale('log')
-            if magnitude:
-                plt.gca().invert_yaxis()
-            plt.xticks(np.arange(len(self.spectypes)), self.spectypes)  # and i[0] are the sorted keys
-            plt.margins(0.2)
+    def _vs_spt(self, yvalue={}, marker='*', color='blue', log=False, magnitude=False):
 
-    def histogram(self, dictionary, log=False, spt=False, title='', x_label=''):
+        xy = combine_values(self.spt_index, yvalue)
+        for key, (index, y) in xy.iteritems():
+            plt.scatter(index, y, marker=marker, alpha=0.6, color=color)
+        if log:
+            plt.yscale('log')
+        if magnitude:
+            plt.gca().invert_yaxis()
+        plt.xticks(np.arange(len(self.spectypes)), self.spectypes)  # and i[0] are the sorted keys
+        plt.margins(0.2)
+
+    def histogram(self, dictionary, log=False, spt=False):
 
         array = []
-        for k, v in dictionary.iteritems():
-            if str(v) != str(np.nan):
-                if log:
-                    array.append(np.log(v))
-                else:
-                    array.append(v)
-        plt.hist(array)
+
+        for spt_index in xrange(len(self.spectypes)):
+            self.spectypes[spt_index] = []
+            count = 0
+
+            for k, index in dictionary.iteritems():
+                # if log:
+                #     array.append(np.log(index))
+                if spt_index == index:
+                    count += 1
+                self.spectypes[spt_index] = count
+            array.append(self.spectypes[spt_index])
+
+        print array
+        assert len(array) != 0
+
+        # plt.hist(array,  align = 'mid')
+        plt.bar(range(len(self.spectypes)), array, align='center')
         if log:
             plt.xscale('log')
         if spt:
             plt.xticks(np.arange(len(self.spectypes)), self.spectypes)
-            plt.margins(0.2)
+            # plt.margins(0.2)
 
 
 #############################################################################################
@@ -301,12 +356,14 @@ lamost = 'lamost_lowres_outfile.txt'
 # CHANGE as needed
 prefix_title = 'All_data_lowres_'
 
-# TODO: make it to where it will plot all of the data on these plots! 
-l = plot(lamost, lamost = True)
-m = plot(lowres_filepath, lowres = True)
-s = plot(standard_filepath, calstar = True)
+l = plot(lamost, lamost=True)
+m = plot(lowres_filepath, lowres=True)
+s = plot(standard_filepath, calstar=True)
 
 # define values (need to comment out in _init_ to define self.values)
+# m.define_zeta('lowres_zeta')
+# m.define_logll('lowres_logll')
+# m.define_feh('lowres_feh')
 # s.define_zeta('calstar_zeta')
 # s.define_logll('calstar_logll')
 # s.define_feh('calstar_feh')
@@ -314,20 +371,25 @@ s = plot(standard_filepath, calstar = True)
 
 
 
-# spectral type
-# l._vs_spt(linelist=True, lamost = True)
+# linelist vs spectral type
+# l.linevs_spt(linelist=True, lamost = True)
 # m._vs_spt(linelist=True, lowres = True)
-#s._vs_spt(linelist=True, )
+s._vs_spt(linelist=True,calstar = True )
 
-# m.histogram(m.spt_index, spt = True)
+
+# histogram of data counts
+mls = append_values(m.spt_index, l.spt_index, s.spt_index)
+m.histogram(mls, spt=True)
 # l.histogram(l.spt_index, spt = True)
-# show_plot(title= prefix_title +' M dwarfs per SpT', y_label=  'count', x_label='Spectral Types', saveaspng= str(prefix_title)+'_spt')
+show_plot(title=prefix_title + ' M Dwarfs per SpT', y_label='count', x_label='Spectral Types',
+          saveaspng=str(prefix_title) + '_spt')
 
-# log LHa / Lbol
-m._vs_spt(linelist=False, yvalue=m.logll, marker = 'o', color = 'blue')
-l._vs_spt(linelist=False, yvalue=l.logll, marker = 's', color = 'green')
-s._vs_spt(linelist=False, yvalue=s.logll, marker = '^', color = 'red')
-show_plot(title= prefix_title + ' vs spt', y_label='log L Ha / L bol', saveaspng= prefix_title+'_logll_spt')
+
+# # log LHa / Lbol
+m._vs_spt(linelist=False, yvalue=m.logll, marker='o', color='blue')
+l._vs_spt(linelist=False, yvalue=l.logll, marker='s', color='green')
+s._vs_spt(linelist=False, yvalue=s.logll, marker='^', color='red')
+show_plot(title=prefix_title + ' vs spt', y_label='log L Ha / L bol', saveaspng=prefix_title + '_logll_spt')
 
 
 
@@ -349,26 +411,33 @@ show_plot(title= prefix_title + ' vs spt', y_label='log L Ha / L bol', saveaspng
 
 
 
+# tio5 vs zeta
+m._vs_(m.tio5, m.zeta, marker='s')
+l._vs_(l.tio5, l.zeta, marker='o')
+s._vs_(s.tio5, s.zeta, marker='^')
+show_plot(title=prefix_title + ' Zeta vs Tio5', x_label='Tio5', y_label='Zeta', saveaspng=prefix_title + '_zeta_tio5')
 
-# # # zeta
-# m._vs_(m.tio5, m.zeta, marker = 's')
-# l._vs_(l.tio5, l.zeta, marker = 'o') # TODO: combine_values not finding s values - fix
-# s._vs_(s.tio5, s.zeta, marker = '*')
-# show_plot(title=prefix_title + ' Zeta vs Tio5', x_label='Tio5', y_label='Zeta', saveaspng= prefix_title+'_zeta_tio5')
-# #
-# m._vs_(m.feh, m.zeta, xlog = True, marker = 's')
-# l._vs_(l.feh, l.zeta, xlog = True, marker = 'o')
-# s._vs_(s.feh, s.zeta, xlog = True, marker = '*')
-# show_plot(title= prefix_title + 'FeH vs Zeta',  x_label='log Fe / H', y_label='Zeta', saveaspng= prefix_title+'_feh_zeta')
 
-#
-# # m._vs_spt(linelist=False, yvalue=m.zeta, marker = 's')
-# # show_plot(title= prefix_title + 'zeta vs SpT', y_label='Zeta', saveaspng= prefix_title+'_zeta_spt')
-#
-# m._vs_(m.tio5, m.cah, marker = 's')
-# l._vs_(l.tio5, l.cah, marker = 'o')
-# s._vs_()
-# show_plot(title =  prefix_title + 'CaH vs TiO5', y_label= 'CaH2 + CaH3', x_label= 'TiO5', saveaspng= prefix_title+'_cah_tio5')
+# # feh vs zeta
+m._vs_(m.feh, m.zeta, xlog=True, marker='s')
+l._vs_(l.feh, l.zeta, xlog=True, marker='o')
+s._vs_(s.feh, s.zeta, xlog=True, marker='^')
+show_plot(title=prefix_title + 'FeH vs Zeta', x_label='log Fe / H', y_label='Zeta',
+          saveaspng=prefix_title + '_feh_zeta')
+
+# zeta vs spt
+m._vs_spt(linelist=False, yvalue=m.zeta, marker='s', color='blue')
+l._vs_spt(linelist=False, yvalue=l.zeta, marker='o', color='green')
+s._vs_spt(linelist=False, yvalue=s.zeta, marker='^', color='red')
+show_plot(title=prefix_title + 'zeta vs SpT', y_label='Zeta', saveaspng=prefix_title + '_zeta_spt')
+
+
+# cah vs tio5
+m._vs_(m.tio5, m.cah, marker='s')
+l._vs_(l.tio5, l.cah, marker='o')
+s._vs_(s.tio5, s.cah, marker='^')
+show_plot(title=prefix_title + 'CaH vs TiO5', y_label='CaH2 + CaH3', x_label='TiO5',
+          saveaspng=prefix_title + '_cah_tio5')
 
 
 
@@ -385,4 +454,3 @@ show_plot(title= prefix_title + ' vs spt', y_label='log L Ha / L bol', saveaspng
 #
 # m._vs_spt(linelist=False, yvalue=m.g_k, magnitude=True)
 # show_plot(title= prefix_title + 'g-K vs SpT', y_label='g-K', saveaspng= prefix_title+'_gk_spt')
-
