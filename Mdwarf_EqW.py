@@ -24,13 +24,21 @@ class EqWidth:
 
         # define data:
         image, header = pyfits.getdata(image_path, header=True)
-        self.y_data = image[0][0, :]
+
         minw = header['CRVAL1']
         dw = header['CD1_1']
-
-        # define wavelengths
-        flux = np.arange(0, len(self.y_data))
-        self.x_wavelengths = flux * dw + minw
+        if 'spec' in str(image_path): # lamost data has different setup
+            self.y_data = image[0]
+            flux = np.arange(0, len(self.y_data))
+            self.x_wavelengths = (flux*10*dw+minw)*1000
+            self.subclass = header['subclass']
+        else:
+            try:
+                self.y_data = image[0][0, :]
+            except IndexError:
+                self.y_data = image
+            flux = np.arange(0, len(self.y_data))
+            self.x_wavelengths = flux * dw + minw
 
         self.base1 = []
         self.base2 = []
